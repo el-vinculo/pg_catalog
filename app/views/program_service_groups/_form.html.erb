@@ -1,0 +1,17 @@
+<%= form_with(model: program_service_group, local: true) do |form| %>
+  <% if program_service_group.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(program_service_group.errors.count, "error") %> prohibited this program_service_group from being saved:</h2>
+
+      <ul>
+      <% program_service_group.errors.full_messages.each do |message| %>
+        <li><%= message %></li>
+      <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="actions">
+    <%= form.submit %>
+  </div>
+<% end %>

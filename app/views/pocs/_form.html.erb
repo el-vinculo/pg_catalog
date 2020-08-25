@@ -1,0 +1,22 @@
+<%= form_with(model: poc, local: true) do |form| %>
+  <% if poc.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(poc.errors.count, "error") %> prohibited this poc from being saved:</h2>
+
+      <ul>
+      <% poc.errors.full_messages.each do |message| %>
+        <li><%= message %></li>
+      <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="field">
+    <%= form.label :poc_name %>
+    <%= form.text_field :poc_name %>
+  </div>
+
+  <div class="actions">
+    <%= form.submit %>
+  </div>
+<% end %>
