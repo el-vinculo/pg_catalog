@@ -75,10 +75,13 @@ class OrgsController < ApplicationController
     org.inactive = dyna_entry["OrganizationName"]["InactiveCatalog"] if dyna_entry["OrganizationName"]["InactiveCatalog"]
     if org.save
       grabbed_org_desc = dyna_entry["OrganizationName"]["OrgDescription"]
-      grabbed_org_desc.each do |god|
-        if !god.empty?
-          GrabList.create(field_name: "OrganizationDescription", text: god["Text"], xpath: god["Xpath"],
-                          page_url: god["Domain"], org: org)
+
+      if grabbed_org_desc
+        grabbed_org_desc.each do |god|
+          if !god.empty?
+            GrabList.create(field_name: "OrganizationDescription", text: god["Text"], xpath: god["Xpath"],
+                            page_url: god["Domain"], org: org)
+          end
         end
       end
 
@@ -157,19 +160,23 @@ class OrgsController < ApplicationController
     prgm.org_id = org.id
     if prgm.save
       attached_sites = p["ProgramSites"]
-      attached_sites.each do |site|
-        entry = dyna_entry["OrgSites"].select{|o| o["SelectSiteID"] == site}
-        logger.debug("the selected entry is : #{entry}, site id is : #{site}")
-        name = entry[0]["LocationName"]
-        logger.debug("@@@@@@@@@@@@@@@@@ the name of the location is : #{name}")
-        s = Site.where(["org_id = ? and site_name = ?", org.id, name]).first
-        logger.debug(".>>>>>>>>>>**************the sete you are looking for is : #{s}")
-        ps = ProgramSite.new
-        ps.site =  s
-        ps.program = prgm
-        if ps.save
-        else
-          logger.debug("ps is not saving because : #{ps.errors.full_messages}")
+      if p.key?("ProgramSites")
+        attached_sites.each do |site|
+          entry = dyna_entry["OrgSites"].select{|o| o["SelectSiteID"] == site}
+          logger.debug("the selected entry is : #{entry}, site id is : #{site}")
+          name = entry[0].nil? ? "" : entry[0]["LocationName"]
+          logger.debug("@@@@@@@@@@@@@@@@@ the name of the location is : #{name}")
+          if !name.blank?
+            s = Site.where(["org_id = ? and site_name = ?", org.id, name]).first
+            logger.debug(".>>>>>>>>>>**************the sete you are looking for is : #{s}")
+            ps = ProgramSite.new
+            ps.site =  s
+            ps.program = prgm
+            if ps.save
+            else
+              logger.debug("ps is not saving because : #{ps.errors.full_messages}")
+            end
+          end
         end
       end
 
@@ -217,7 +224,7 @@ class OrgsController < ApplicationController
 
   def create_location(s, site)
     loc = Location.new
-    loc.addr1 = site["Addr1"][0]["Text"] if site["Addr1"][0]["Text"]
+    loc.addr1 = site.key?("Addr1") ? site["Addr1"][0]["Text"] : ""
     loc.city = site["AddrCity"] if site["AddrCity"]
     loc.state = site["AddrState"] if site["AddrState"]
     loc.zip = site["AddrZip"] if site["AddrZip"]
@@ -233,19 +240,23 @@ class OrgsController < ApplicationController
   end
 
   def create_poc(s,site,org)
-    site["POCs"].each do |contact|
-      poc = Poc.new
-      poc.org = org
-      poc.poc_name = contact["poc"]["Name"]
-      poc.title = contact["poc"]["Title"]
-      poc.work = contact["poc"]["OfficePhone"]
-      poc.email = contact["poc"]["Email"]
-      poc.inactive = contact["poc"]["InactivePOC"]
-      if poc.save
-        SitePoc.create(poc: poc, site: s)
+
+    if site.key?("POCs")
+
+      site["POCs"].each do |contact|
+        poc = Poc.new
+        poc.org = org
+        poc.poc_name = contact["poc"]["Name"]
+        poc.title = contact["poc"]["Title"]
+        poc.work = contact["poc"]["OfficePhone"]
+        poc.email = contact["poc"]["Email"]
+        poc.inactive = contact["poc"]["InactivePOC"]
+        if poc.save
+          SitePoc.create(poc: poc, site: s)
+        end
       end
     end
-
+    
   end
 
 
