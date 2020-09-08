@@ -65,8 +65,15 @@ class OrgsController < ApplicationController
     logger.debug("the parameters are #{params}")
 
     dyna_entry = params["catalog"]
-    org = Org.new
+    existing_org = Org.find_by_domain(dyna_entry["url"])
 
+    if existing_org.nil?
+      org = Org.new
+    else
+      logger.debug("****** THE ORG EXISTS")
+      org = existing_org
+
+    end
     org.name = dyna_entry["OrganizationName"]["OrganizationName"][0]["Text"] if dyna_entry["OrganizationName"]["OrganizationName"][0]["Text"]
     org.domain = dyna_entry["url"]
     org.description_display = dyna_entry["OrganizationName"]["OrganizationDescriptionDisplay"] if dyna_entry["OrganizationName"]["OrganizationDescriptionDisplay"]
@@ -92,23 +99,162 @@ class OrgsController < ApplicationController
       end
 
       #Code to extract sites data into postgrace
-      dyna_entry["OrgSites"].each do |site|
-        extract_site_data(site, org)
+      if dyna_entry["OrgSites"]
+        dyna_entry["OrgSites"].each do |site|
+          extract_site_data(site, org)
+        end
       end
 
       #Code to extract program data into postgrace
-      dyna_entry["Programs"].each do |p|
-        extract_programs_data(p,org, dyna_entry)
+      if dyna_entry["Programs"]
+        dyna_entry["Programs"].each do |p|
+          extract_programs_data(p,org, dyna_entry)
+        end
       end
 
-      extract_geo_scope_data(dyna_entry["GeoScope"], org)
+      if dyna_entry["GeoScope"]
+        extract_geo_scope_data(dyna_entry["GeoScope"], org)
+      end
 
     end
 
   end
 
+
+  def update_sites
+    dyna_entry = params["catalog"]
+    org = Org.find_by_domain(dyna_entry["url"])
+    sites = dyna_entry["sites"]
+
+    sites.each do |site|
+      existing_site = Site.where(["org_id = ? and site_name = ?", org.id, site["LocationName"]])
+      if existing_site.empty?
+        s = Site.new
+      else
+        s = existing_site.first
+      end
+      s.site_name = site["LocationName"] if site["LocationName"]
+      s.site_url = site["Webpage"] if site["Webpage"]
+      s.site_ref = site["Referrals"] if site["Referrals"]
+      s.admin = site["AdminSite"] if site["AdminSite"]
+      s.delivery = site["ServiceDeliverySite"] if site["ServiceDeliverySite"]
+      s.resource_dir = site["ResourceDirectory"] if site["ResourceDirectory"]
+      s.inactive = site["InactiveSite"] if site["InactiveSite"]
+      s.org_id = org.id
+      if s.save
+        create_location(s, site)
+        create_poc(s,site,org)
+      else
+        logger.debug("******the error in s save is : #{s.errors.full_messages}")
+      end
+    end
+
+
+
+
+
+
+  end
+
+
+  def update_programs
+
+    dyna_entry = params["catalog"]
+    org = Org.find_by_domain(dyna_entry["url"])
+    programs = dyna_entry["programs"]
+
+    programs.each do |p|
+      logger.debug("the program is : #{p}--------- org is #{org.id} ")
+
+      program_check = Program.where(["org_id = ? and name = ?", org.id, p["ProgramName"]])
+
+      if program_check.nil?
+        prgm = Program.new
+      else
+        prgm = program_check.first
+      end
+
+      prgm.name = p["ProgramName"] if p["ProgramName"]
+      prgm.quick_url = p["QuickConnectWebPage"] if p["QuickConnectWebPage"]
+      prgm.contact_url = p["ContactWebPage"] if p["ContactWebPage"]
+      prgm.program_url = p["ProgramWebPage"] if p["ProgramWebPage"]
+      prgm.program_description_display = p["ProgramDescriptionDisplay"] if p["ProgramDescriptionDisplay"]
+      prgm.population_description_display = p["PopulationDescriptionDisplay"] if p["PopulationDescriptionDisplay"]
+      prgm.service_area_description_display = p["ServiceAreaDescriptionDisplay"] if p["ServiceAreaDescriptionDisplay"]
+      prgm.inactive = p["InactiveProgram"] if p["InactiveProgram"]
+      prgm.org_id = org.id
+      if prgm.save
+        attached_sites = p["ProgramSites"]
+        program_sites = ProgramSite.where(program_id: prgm.id)
+        program_sites.each do |ps|
+          ps.destroy
+        end
+        if p.key?("ProgramSites")
+          attached_sites.each do |site|
+            entry = dyna_entry["dyna_entry"]["OrgSites"].select{|o| o["SelectSiteID"] == site}
+            logger.debug("the selected entry is : #{entry}, site id is : #{site}")
+            name = entry[0].nil? ? "" : entry[0]["LocationName"]
+            logger.debug("@@@@@@@@@@@@@@@@@ the name of the location is : #{name}")
+            if !name.blank?
+              s = Site.where(["org_id = ? and site_name = ?", org.id, name]).first
+              logger.debug(".>>>>>>>>>>**************the sete you are looking for is : #{s}")
+              ps = ProgramSite.new
+              ps.site =  s
+              ps.program = prgm
+              if ps.save
+              else
+                logger.debug("ps is not saving because : #{ps.errors.full_messages}")
+              end
+            end
+          end
+        end
+      end
+
+      create_groups(p, prgm, org)
+      service_tags = p["ServiceTags"].split(", ")
+      service_tag_list = ServiceTag.all.pluck("name")
+      service_tags.each do|st|
+        if !service_tag_list.include? (st)
+          ServiceTag.create(name: st)
+        end
+        selected_tag = ServiceTag.find_by_name(st)
+        if ProgramServiceTag.where(["program_id = ? and service_tag_id = ?", prgm.id, selected_tag.id]).empty?
+          ProgramServiceTag.create(org: org, program: prgm, service_tag: selected_tag)
+        end
+      end
+
+      p.each do |key,value|
+        if ["ProgramDescription", "PopulationDescription", "ServiceAreaDescription" ].include? (key)
+
+          value.each do |grabbed_field|
+            if GrabList.where(["field_name = ? and program_id = ?", key, prgm.id]).empty?
+
+                GrabList.create(field_name: key , text: grabbed_field["Text"], xpath: grabbed_field["Xpath"],
+                                page_url: grabbed_field["Domain"], org: org, program_id: prgm.id)
+            else
+              GrabList.where(["field_name = ? and program_id = ?", key, prgm.id]).first.update(field_name: key ,
+                                                                                               text: grabbed_field["Text"],
+                                                                                               xpath: grabbed_field["Xpath"],
+                                                                                               page_url: grabbed_field["Domain"],
+                                                                                               org: org, program_id: prgm.id)
+            end
+          end
+        end
+      end
+    end
+
+
+
+  end
+
   def extract_geo_scope_data(data, org)
-    scope = Scope.new
+    existing_scope = org.scopes
+    if existing_scope.empty?
+      scope = Scope.new
+    else
+      logger.debug("***********the SCOPE ALREADY EXISTS***************")
+      scope = existing_scope.first  
+    end
     scope.geo_scope = data["Scope"] if data["Scope"]
     scope.neigborhood = data["Neighborhoods"] if data["Neighborhoods"]
     scope.city = data["City"] if data["City"]
@@ -124,6 +270,14 @@ class OrgsController < ApplicationController
   def create_groups(p, prgm,org)
     all_servicegroup_list = ServiceGroup.all.pluck("name")
     all_popgroup_list = PopulationGroup.all.pluck("name")
+    ProgramServiceGroup.where(program_id: prgm.id).each do |psg|
+      psg.destroy
+    end
+
+    ProgramPopulationGroup.where(program_id: prgm.id).each do |ppg|
+      ppg.destroy
+    end
+
     p.each do |key,value|
         if key[0..1] == "S_"
           name = key.split("_")[1]
@@ -223,28 +377,44 @@ class OrgsController < ApplicationController
   end
 
   def create_location(s, site)
-    loc = Location.new
-    loc.addr1 = site.key?("Addr1") ? site["Addr1"][0]["Text"] : ""
-    loc.city = site["AddrCity"] if site["AddrCity"]
-    loc.state = site["AddrState"] if site["AddrState"]
-    loc.zip = site["AddrZip"] if site["AddrZip"]
-    loc.phone = site["OfficePhone"] if site["OfficePhone"]
-    loc.email = site["Email"] if site["Email"]
-    loc.primary_poc = site["DefaultPOC"] if site["DefaultPOC"]
-    loc.inactive = site["InactiveSite"] if site["InactiveSite"]
-    loc.sites_id = s.id
-    if loc.save
-    else
-      logger.debug("---------------******the reasson why loc is not saving is #{loc.errors.full_messages}")
+
+    if !site.key?("Addr1").nil? && !site["AddrCity"].nil?
+      existing_loc = Location.where(["sites_id = ? and addr1 = ?", s.id, site["Addr1"][0]["Text"] ])
+      if existing_loc.empty?
+        loc = Location.new
+      else
+        loc = existing_loc.first
+      end
+      loc.addr1 = site.key?("Addr1") ? site["Addr1"][0]["Text"] : ""
+      loc.city = site["AddrCity"] if site["AddrCity"]
+      loc.state = site["AddrState"] if site["AddrState"]
+      loc.zip = site["AddrZip"] if site["AddrZip"]
+      loc.phone = site["OfficePhone"] if site["OfficePhone"]
+      loc.email = site["Email"] if site["Email"]
+      loc.primary_poc = site["DefaultPOC"] if site["DefaultPOC"]
+      loc.inactive = site["InactiveSite"] if site["InactiveSite"]
+      loc.sites_id = s.id
+      if loc.save
+      else
+        logger.debug("---------------******the reasson why loc is not saving is #{loc.errors.full_messages}")
+      end
     end
+
   end
 
   def create_poc(s,site,org)
 
+    SitePoc.where(site_id: s.id).each do |sp|
+      sp.destroy
+    end
     if site.key?("POCs")
-
       site["POCs"].each do |contact|
-        poc = Poc.new
+        existing_poc = Poc.where(["org_id = ? and poc_name = ?", org.id, contact["poc"]["Name"]])
+        if existing_poc.empty?
+          poc = Poc.new
+        else
+          poc = existing_poc.first
+        end
         poc.org = org
         poc.poc_name = contact["poc"]["Name"]
         poc.title = contact["poc"]["Title"]

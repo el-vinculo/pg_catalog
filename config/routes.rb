@@ -8,4 +8,7 @@ Rails.application.routes.draw do
   resources :orgs
   # For details on the DSL available within this file, see http://guides.rubyonrails.org/routing.html
   post "/create_new_entry", to: "orgs#create_new_entry"
+  post "/update_programs", to: "orgs#update_programs"
+  post "/update_sites", to: "orgs#update_sites"
+
 end
