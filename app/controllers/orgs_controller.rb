@@ -302,7 +302,15 @@ class OrgsController < ApplicationController
   end
 
   def extract_programs_data(p,org, dyna_entry)
-    prgm = Program.new
+
+    existing_prgm = Program.where(["org_id = ? and name = ?", org.id, p["ProgramName"]])
+
+    if existing_prgm.empty?
+      prgm = Program.new
+    else
+      prgm = existing_prgm.first
+    end
+
     prgm.name = p["ProgramName"] if p["ProgramName"]
     prgm.quick_url = p["QuickConnectWebPage"] if p["QuickConnectWebPage"]
     prgm.contact_url = p["ContactWebPage"] if p["ContactWebPage"]
@@ -314,6 +322,10 @@ class OrgsController < ApplicationController
     prgm.org_id = org.id
     if prgm.save
       attached_sites = p["ProgramSites"]
+      program_sites = ProgramSite.where(program_id: prgm.id)
+      program_sites.each do |ps|
+        ps.destroy
+      end
       if p.key?("ProgramSites")
         attached_sites.each do |site|
           entry = dyna_entry["OrgSites"].select{|o| o["SelectSiteID"] == site}
@@ -342,22 +354,46 @@ class OrgsController < ApplicationController
           ServiceTag.create(name: st)
         end
         selected_tag = ServiceTag.find_by_name(st)
-        ProgramServiceTag.create(org: org, program: prgm, service_tag: selected_tag)
+        if ProgramServiceTag.where(["program_id = ? and service_tag_id = ?", prgm.id, selected_tag.id]).empty?
+          ProgramServiceTag.create(org: org, program: prgm, service_tag: selected_tag)
+        end
       end
+
 
       p.each do |key,value|
         if ["ProgramDescription", "PopulationDescription", "ServiceAreaDescription" ].include? (key)
+
           value.each do |grabbed_field|
-            GrabList.create(field_name: key , text: grabbed_field["Text"], xpath: grabbed_field["Xpath"],
-                            page_url: grabbed_field["Domain"], org: org, program_id: prgm.id)
+            if GrabList.where(["field_name = ? and program_id = ?", key, prgm.id]).empty?
+
+              GrabList.create(field_name: key , text: grabbed_field["Text"], xpath: grabbed_field["Xpath"],
+                              page_url: grabbed_field["Domain"], org: org, program_id: prgm.id)
+            else
+              GrabList.where(["field_name = ? and program_id = ?", key, prgm.id]).first.update(field_name: key ,
+                                                                                               text: grabbed_field["Text"],
+                                                                                               xpath: grabbed_field["Xpath"],
+                                                                                               page_url: grabbed_field["Domain"],
+                                                                                               org: org, program_id: prgm.id)
+            end
           end
         end
       end
+      # value.each do |grabbed_field|
+      #   GrabList.create(field_name: key , text: grabbed_field["Text"], xpath: grabbed_field["Xpath"],
+      #                   page_url: grabbed_field["Domain"], org: org, program_id: prgm.id)
+      # end
+
     end
   end
 
   def extract_site_data(site, org)
-    s = Site.new
+
+    existing_site = Site.where(["org_id = ? and site_name = ?", org.id, site["LocationName"]])
+    if existing_site.empty?
+      s = Site.new
+    else
+      s = existing_site.first
+    end
     s.site_name = site["LocationName"] if site["LocationName"]
     s.site_url = site["Webpage"] if site["Webpage"]
     s.site_ref = site["Referrals"] if site["Referrals"]
