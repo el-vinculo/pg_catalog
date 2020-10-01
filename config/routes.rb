@@ -10,5 +10,6 @@ Rails.application.routes.draw do
   post "/create_new_entry", to: "orgs#create_new_entry"
   post "/update_programs", to: "orgs#update_programs"
   post "/update_sites", to: "orgs#update_sites"
+  post "/catalog_search", to: "orgs#catalog_search"
 
 end

@@ -466,6 +466,184 @@ class OrgsController < ApplicationController
   end
 
 
+
+  def catalog_search
+
+    #--- {'population': {'conditional': 'OR', 'value': ['P_Citizenship']},
+    #---  'services': {'type': 'group', 'conditional': 'OR', 'value': ['S_Clothing']},
+    #---+++  'name': 'YWCA Kitsap County',
+    #---+++  'tags': ['Repair'],
+    #---  'GeoScope': {'value': 'WA', 'type': 'State'},
+    #  'application_name': 'demo'}
+    query_params = params["search_params"].keys
+    all_acttive_programs = Program.where(inactive: nil)
+    logger.debug("query_params iss : #{query_params}")
+    if query_params.sort == ["application_name"].sort
+      logger.debug("ONLY application")
+      all_programs = all_acttive_programs
+
+    elsif query_params.sort == ["tags","application_name"].sort
+      logger.debug("*********IN THE TAGS")
+      tags = params["search_params"]["tags"]
+      all_programs = filter_tags(tags,all_acttive_programs)
+      # all_programs = Program.joins(:service_tags).where(service_tags: {name: tags}, inactive: nil)
+
+    elsif query_params.sort == ["population","application_name"].sort
+      logger.debug("*********IN the population")
+      population_groups = params["search_params"]["population"]["value"]
+      # all_programs = Program.joins(:population_groups).where(population_groups: {name: population_groups}, inactive: nil)
+      all_programs = filter_population_groups(population_groups, all_acttive_programs)
+
+    elsif query_params.sort == ["services","application_name"].sort
+      logger.debug('***************IN THE SERVICES')
+      service_groups = params["search_params"]["services"]["value"]
+      # all_programs = Program.joins(:service_groups).where(service_groups: {name: service_groups}, inactive: nil)
+      all_programs = filter_service_groups(service_groups,all_acttive_programs)
+
+    elsif query_params.sort == ['name','application_name'].sort
+      logger.debug("********IN THE NAME")
+      org_name = params["search_params"]["name"]
+      # all_org = Org.where("name ILike ?", "%" + org_name + "%")
+
+      all_programs = filter_name(org_name,all_acttive_programs)
+
+    elsif query_params.sort == ["GeoScop","application_name"].sort
+
+    else
+      logger.debug("************IN the final else")
+      programs = all_acttive_programs
+      if query_params.include? ('name')
+        logger.debug("************IN the final else------------NAME")
+        org_name = params["search_params"]["name"]
+        programs = filter_name(org_name,programs)
+      end
+      if query_params.include? ('services')
+        logger.debug("************IN the final else-----------SERVICES")
+        service_groups = params["search_params"]["services"]["value"]
+        programs = filter_service_groups(service_groups,programs)
+      end
+      if query_params.include? ('population')
+        logger.debug("************IN the final else-----------POPULATION")
+        population_groups = params["search_params"]["population"]["value"]
+        programs = filter_population_groups(population_groups, programs)
+      end
+      if query_params.include? ('tags')
+        logger.debug("************IN the final else-------------TAGS---#{programs.count}")
+        tags = params["search_params"]["tags"]
+        programs = filter_tags(tags,programs)
+      end
+
+      all_programs = programs
+
+    end
+
+    provider_list = split_programs(all_programs)
+
+    render :json => {status: :ok,count: provider_list.count, provider_list: provider_list }
+
+  end
+
+  def filter_population_groups(population_groups,programs)
+    population_group_count = population_groups.count
+    programs_array = []
+
+    programs.each do |p|
+      if !p.org.inactive?
+        true_array = []
+        population_groups.each do |pg|
+          if !p.population_groups.where(name: pg).blank?
+            true_array.push("true")
+          end
+        end
+        if true_array.count == population_group_count
+          programs_array.push(p)
+        end
+      end
+    end
+
+    programs_array
+    # Program.joins(:population_groups).where(population_groups: {name: population_groups})
+  end
+
+  def split_programs(programs)
+    provider_list = []
+    programs.each do |p|
+      org = p.org
+      prog_name = p.name
+      org_name = org.name
+      org_domain = org.domain
+      provider = {domain: org_domain ,org_name: org_name, prog_name: prog_name}
+      provider_list.push(provider)
+
+    end
+    provider_list
+
+  end
+
+  def filter_name(name,program)
+    programs_array = []
+    logger.debug("**********IN the filter name #{name}")
+
+    program.each do |p|
+
+      if !p.org.inactive?
+        if p.org.name.downcase.include?(name.downcase)
+          logger.debug("****The name is a match #{p.org.name}")
+          programs_array.push(p)
+        end
+      end
+    end
+
+    programs_array
+    # Org.where("name ILike ?", "%" + name + "%")
+  end
+
+  def filter_tags(tags,programs)
+    tags_count = tags.count
+    programs_array = []
+
+    programs.each do |p|
+      if !p.org.inactive?
+        true_array = []
+        tags.each do |t|
+          if !p.service_tags.where(name: t).blank?
+            true_array.push("true")
+          end
+        end
+        if true_array.count == tags_count
+          programs_array.push(p)
+        end
+      end
+    end
+
+    programs_array
+    # Program.joins(:service_tags).where(service_tags: {name: tags})
+  end
+
+
+  def filter_service_groups(service_groups,programs)
+    service_groups_count = service_groups.count
+    programs_array = []
+
+    programs.each do |p|
+      if !p.org.inactive?
+        true_array = []
+        service_groups.each do |sg|
+          if !p.service_groups.where(name: sg).blank?
+            true_array.push("true")
+          end
+        end
+        if true_array.count == service_groups_count
+          programs_array.push(p)
+        end
+      end
+    end
+
+    programs_array
+    # Program.joins(:service_groups).where(service_groups: {name: service_groups})
+  end
+
+
   private
     # Use callbacks to share common setup or constraints between actions.
     def set_org
