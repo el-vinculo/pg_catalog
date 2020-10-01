@@ -475,6 +475,8 @@ class OrgsController < ApplicationController
     #---+++  'tags': ['Repair'],
     #---  'GeoScope': {'value': 'WA', 'type': 'State'},
     #  'application_name': 'demo'}
+    # {'GeoScope': {'value': 'National', 'type': 'Scope'}, 'application_name': 'demo'}
+
     query_params = params["search_params"].keys
     all_acttive_programs = Program.where(inactive: nil)
     logger.debug("query_params iss : #{query_params}")
@@ -507,7 +509,11 @@ class OrgsController < ApplicationController
 
       all_programs = filter_name(org_name,all_acttive_programs)
 
-    elsif query_params.sort == ["GeoScop","application_name"].sort
+    elsif query_params.sort == ["GeoScope","application_name"].sort
+
+      scope_value = params["search_params"]["GeoScope"]["value"]
+      scope_type = params["search_params"]["GeoScope"]["type"]
+      all_programs = filter_scope(scope_value, scope_type,all_acttive_programs)
 
     else
       logger.debug("************IN the final else")
@@ -540,6 +546,48 @@ class OrgsController < ApplicationController
     provider_list = split_programs(all_programs)
 
     render :json => {status: :ok,count: provider_list.count, provider_list: provider_list }
+
+  end
+
+  #---  'GeoScope': {'value': 'WA', 'type': 'State'},
+  # {'GeoScope': {'value': 'National', 'type': 'Scope'}, 'application_name': 'demo'}
+  def filter_scope(scope_value, scope_type, programs)
+    programs_array = []
+
+    programs.each do |p|
+      if !p.org.inactive?
+        prog_scope_type = p.org.scopes.first.geo_scope
+        if scope_type == "State"
+          prog_scope_value = p.org.scopes.first.state
+
+        elsif scope_type == "County"
+          prog_scope_value = p.org.scopes.first.county
+
+        elsif scope_type == "City"
+          prog_scope_value = p.org.scopes.first.city
+
+        elsif scope_type == "Scope"
+
+
+        end
+
+        if ['National', 'Virtual'].include? (scope_value)
+
+          if prog_scope_type.downcase == scope_value.downcase
+            programs_array.push(p)
+          end
+
+        else
+          if (prog_scope_type == scope_type) && (prog_scope_value.downcase.include? (scope_value.downcase))
+            logger.debug("THE the value of the prog_scope_value: #{prog_scope_value} :: #{prog_scope_value}-------type : #{prog_scope_type} :: #{scope_type} ")
+            programs_array.push(p)
+          end
+        end
+
+      end
+    end
+
+    programs_array
 
   end
 
