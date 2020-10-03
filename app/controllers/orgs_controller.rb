@@ -487,18 +487,18 @@ class OrgsController < ApplicationController
     elsif query_params.sort == ["tags","application_name"].sort
       logger.debug("*********IN THE TAGS")
       tags = params["search_params"]["tags"]
-      all_programs = filter_tags(tags,all_acttive_programs)
-      # all_programs = Program.joins(:service_tags).where(service_tags: {name: tags}, inactive: nil)
+      # all_programs = filter_tags(tags,all_acttive_programs)
+      all_programs = Program.joins(:service_tags).where(service_tags: {name: tags})
 
     elsif query_params.sort == ["population","application_name"].sort
       logger.debug("*********IN the population")
-      population_groups = params["search_params"]["population"]["value"]
-      # all_programs = Program.joins(:population_groups).where(population_groups: {name: population_groups}, inactive: nil)
-      all_programs = filter_population_groups(population_groups, all_acttive_programs)
+      population_groups = split_values(params["search_params"]["population"]["value"])
+      all_programs = Program.joins(:population_groups).where(population_groups: {name: population_groups})
+      # all_programs = filter_population_groups(population_groups, all_acttive_programs)
 
     elsif query_params.sort == ["services","application_name"].sort
       logger.debug('***************IN THE SERVICES')
-      service_groups = params["search_params"]["services"]["value"]
+      service_groups = split_values(params["search_params"]["services"]["value"])
       # all_programs = Program.joins(:service_groups).where(service_groups: {name: service_groups}, inactive: nil)
       all_programs = filter_service_groups(service_groups,all_acttive_programs)
 
@@ -547,6 +547,15 @@ class OrgsController < ApplicationController
 
     render :json => {status: :ok,count: provider_list.count, provider_list: provider_list }
 
+  end
+
+  def split_values(query_array)
+    new_array = []
+    query_array.each do |qa|
+      new_array.push(qa.split("_")[1])
+    end
+
+    new_array
   end
 
   #---  'GeoScope': {'value': 'WA', 'type': 'State'},
