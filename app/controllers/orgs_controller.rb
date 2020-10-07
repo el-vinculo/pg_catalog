@@ -488,12 +488,12 @@ class OrgsController < ApplicationController
       logger.debug("*********IN THE TAGS")
       tags = params["search_params"]["tags"]
       # all_programs = filter_tags(tags,all_acttive_programs)
-      all_programs = Program.joins(:service_tags).where(service_tags: {name: tags})
+      all_programs = Program.joins(:service_tags).where(service_tags: {name: tags}, inactive: nil)
 
     elsif query_params.sort == ["population","application_name"].sort
       logger.debug("*********IN the population")
       population_groups = split_values(params["search_params"]["population"]["value"])
-      all_programs = Program.joins(:population_groups).where(population_groups: {name: population_groups})
+      all_programs = Program.joins(:population_groups).where(population_groups: {name: population_groups}, inactive: nil)
       # all_programs = filter_population_groups(population_groups, all_acttive_programs)
 
     elsif query_params.sort == ["services","application_name"].sort
@@ -525,18 +525,25 @@ class OrgsController < ApplicationController
       end
       if query_params.include? ('services')
         logger.debug("************IN the final else-----------SERVICES")
-        service_groups = params["search_params"]["services"]["value"]
+        service_groups = split_values(params["search_params"]["services"]["value"])
         programs = filter_service_groups(service_groups,programs)
       end
       if query_params.include? ('population')
         logger.debug("************IN the final else-----------POPULATION")
-        population_groups = params["search_params"]["population"]["value"]
-        programs = filter_population_groups(population_groups, programs)
+        population_groups = split_values(params["search_params"]["population"]["value"])
+        programs = programs.joins(:population_groups).where(population_groups: {name: population_groups})
+        # programs = filter_population_groups(population_groups, programs)
       end
       if query_params.include? ('tags')
         logger.debug("************IN the final else-------------TAGS---#{programs.count}")
         tags = params["search_params"]["tags"]
-        programs = filter_tags(tags,programs)
+        # programs = filter_tags(tags,programs)
+        programs = programs.joins(:service_tags).where(service_tags: {name: tags})
+      end
+      if query_params.include? ('GeoScope')
+        scope_value = params["search_params"]["GeoScope"]["value"]
+        scope_type = params["search_params"]["GeoScope"]["type"]
+        programs = filter_scope(scope_value, scope_type, programs)
       end
 
       all_programs = programs
