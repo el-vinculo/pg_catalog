@@ -2,6 +2,7 @@ class CreateSites < ActiveRecord::Migration[5.2]
   def change
     create_table :sites do |t|
       t.string :site_name
+      t.string :name
       t.string :site_url
       t.string :site_ref
       t.boolean :admin

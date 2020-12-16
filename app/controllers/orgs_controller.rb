@@ -256,7 +256,8 @@ class OrgsController < ApplicationController
       scope = existing_scope.first  
     end
     scope.geo_scope = data["Scope"] if data["Scope"]
-    scope.neigborhood = data["Neighborhoods"] if data["Neighborhoods"]
+    scope.neighborhood = data["Neighborhoods"] if data["Neighborhoods"]
+    scope.service_area_name = data["ServiceAreaName"] if data["ServiceAreaName"]
     scope.city = data["City"] if data["City"]
     scope.county = data["County"] if data["County"]
     scope.state = data["State"] if data["State"]
@@ -395,6 +396,7 @@ class OrgsController < ApplicationController
       s = existing_site.first
     end
     s.site_name = site["LocationName"] if site["LocationName"]
+    s.name = site["Name"] if site["Name"]
     s.site_url = site["Webpage"] if site["Webpage"]
     s.site_ref = site["Referrals"] if site["Referrals"]
     s.admin = site["AdminSite"] if site["AdminSite"]
@@ -403,6 +405,7 @@ class OrgsController < ApplicationController
     s.inactive = site["InactiveSite"] if site["InactiveSite"]
     s.org_id = org.id
     if s.save
+      logger.debug("******* SITE IS SAVED******")
       create_location(s, site)
       create_poc(s,site,org)
     else
@@ -413,14 +416,16 @@ class OrgsController < ApplicationController
   end
 
   def create_location(s, site)
-
+    logger.debug("**********the site in create location is : #{s.inspect}")
     if !site.key?("Addr1").nil? && !site["AddrCity"].nil?
-      existing_loc = Location.where(["sites_id = ? and addr1 = ?", s.id, site["Addr1"][0]["Text"] ])
+      existing_loc = Location.where("sites_id = ? and addr1 = ?", s.id, site["Addr1"][0]["Text"])
+      logger.debug("*888888********the existing loc is : #{existing_loc.inspect}")
       if existing_loc.empty?
         loc = Location.new
       else
         loc = existing_loc.first
       end
+      logger.debug("**********the site in create locationnnnn 2222222 is : #{s.inspect}")
       loc.addr1 = site.key?("Addr1") ? site["Addr1"][0]["Text"] : ""
       loc.city = site["AddrCity"] if site["AddrCity"]
       loc.state = site["AddrState"] if site["AddrState"]
@@ -537,8 +542,8 @@ class OrgsController < ApplicationController
       if query_params.include? ('tags')
         logger.debug("************IN the final else-------------TAGS---#{programs.count}")
         tags = params["search_params"]["tags"]
-        # programs = filter_tags(tags,programs)
-        programs = programs.joins(:service_tags).where(service_tags: {name: tags})
+        programs = filter_tags(tags,programs)
+        # programs = programs.joins(:service_tags).where(service_tags: {name: tags})
       end
       if query_params.include? ('GeoScope')
         scope_value = params["search_params"]["GeoScope"]["value"]
@@ -551,10 +556,191 @@ class OrgsController < ApplicationController
     end
 
     provider_list = split_programs(all_programs)
+    complete_result = create_complete_hash(all_programs)
 
-    render :json => {status: :ok,count: provider_list.count, provider_list: provider_list }
+    render :json => {status: :ok,count: provider_list.count, provider_list: provider_list, complete_result: complete_result }
 
   end
+
+
+  def create_complete_hash(programs)
+
+
+    provider_list = []
+    programs.each do |p|
+      org = p.org
+      scope = org.scopes.first
+      org_name_grab_field = org.grab_lists.where(field_name: "OrganizationName").first
+      program_services = p.service_groups.pluck(:name)
+      program_population = p.population_groups.pluck(:name)
+      p_service_tags = p.service_tags.pluck(:name).join(", ")
+      p_sites = p.sites
+      program_sites_array = [ ]
+
+      p_sites.each do |ps|
+        pocs = ps.pocs
+        location = Location.where(sites_id: ps.id)
+
+        site = {
+            "Addr1": [
+                {
+                    "Domain": "n/a",
+                    "Text": location.addr1,
+                    "Xpath": "n/a"
+                }
+            ],
+            "AddrCity": location.city,
+            "AddrState": location.state,
+            "AddrZip": location.zip,
+            # "AdminSite": true,
+            # "DefaultPOC": false,
+            "Email": location.email,
+            # "InactivePOC": false,
+            "InactiveSite": ps.inactive.nil? ? false : ps.inactive ,
+            "LocationName": ps.site_name,
+            "Name": ps.name,
+            "OfficePhone": location.phone
+            # "POCs": [
+            #     {
+            #         "id": "1.0",
+            #         "poc": {
+            #             "DefaultPOC": false,
+            #             "Email": "ContactCHS@doh.wa.gov",
+            #             "InactivePOC": false,
+            #             "Name": "Office",
+            #             "OfficePhone": "(360) 236-4300"
+            #         }
+            #     }
+            # ],
+            # "ResourceDirectory": false,
+            # "SelectSiteID": "1",
+            # "ServiceDeliverySite": true
+        }
+
+        program_sites_array.push(site)
+
+      end
+
+      # prog_name = p.name
+      # org_name = org.name
+      # org_domain = org.domain
+      # provider = {domain: org_domain ,org_name: org_name, prog_name: prog_name}
+      # provider_list.push(provider)
+
+
+      provider = {
+        "GeoScope": {
+            "City": scope.city,
+            "Country": scope.country,
+            "County": scope.county,
+            "Neighborhoods": scope.neighborhood,
+            "Region": scope.region,
+            "Scope": scope.geo_scope,
+            "ServiceAreaName": scope.service_area_name,
+            "State": scope.state
+        },
+        # "missing_mandatory_fields": "0",
+        "OrganizationName": {
+            "HomePageURL": org.home_url,
+            "InactiveCatalog": org.inactive,
+
+            "OrganizationDescriptionDisplay": org.description_display.nil? ? "n/a" : org.description_display,
+
+            "OrganizationName": [
+                {
+                    "Domain": org_name_grab_field.page_url.nil? ? "n/a" : org_name_grab_field.page_url ,
+                    "Text": org_name_grab_field.text,
+                    "Xpath": org_name_grab_field.xpath.nil? ? "n/a" : org_name_grab_field.xpath
+                }
+            ],
+            # "OrgDescription": [
+            #     {
+            #         "Domain": "https://arcwa.org/",
+            #         "Text": "The Arc  and personal choices.",
+            #         "Xpath": "span"
+            #     }
+            # ],
+            "Type": org.org_type
+        },
+        "OrgSites": program_sites_array ,
+        "poc_emailed": true,
+        "Programs": [
+            {
+                "ContactWebPage": p.contact_url,
+                "InactiveProgram": p.inactive.nil? ? false : p.inactive,
+                "P_Any": program_population.include?("Any") ? true : false,
+                "P_Citizenship": program_population.include?("Citizenship") ? true : false,
+                "P_Disabled": program_population.include?("Disabled") ? true : false,
+                "P_Family": program_population.include?("Family") ? true : false,
+                "P_LGBTQ": program_population.include?("LGBTQ") ? true : false,
+                "P_LowIncome": program_population.include?("LowIncome") ? true : false,
+                "P_Native": program_population.include?("Native") ? true : false,
+                "P_Other": program_population.include?("Other") ? true : false,
+                "P_Senior": program_population.include?("Senior") ? true : false,
+                "P_Veteran": program_population.include?("Veteran") ? true : false,
+                "PopulationDescription": [
+                    {
+
+                    }
+                ],
+                "ProgramDescriptionDisplay": p.program_description_display,
+                "ProgramName": p.name,
+                "QuickConnectWebPage": p.quick_url,
+                "S_Abuse": program_services.include?("Any") ? true : false,
+                "S_Addiction": program_services.include?("Addiction") ? true : false,
+                "S_BasicNeeds": program_services.include?("BasicNeeds") ? true : false,
+                "S_Behavioral": program_services.include?("Behavioral") ? true : false,
+                "S_CaseManagement": program_services.include?("CaseManagement") ? true : false,
+                "S_Clothing": program_services.include?("Clothing") ? true : false,
+                "S_COVID19": program_services.include?("COVID19") ? true : false,
+                "S_DayCare": program_services.include?("DayCare") ? true : false,
+                "S_Dental": program_services.include?("Dental") ? true : false,
+                "S_Disabled": program_services.include?("Disabled") ? true : false,
+                "S_Education": program_services.include?("Education") ? true : false,
+                "S_Emergency": program_services.include?("Emergency") ? true : false,
+                "S_Employment": program_services.include?("Employment") ? true : false,
+                "S_Family": program_services.include?("Family") ? true : false,
+                "S_Financial": program_services.include?("Financial") ? true : false,
+                "S_Food": program_services.include?("Food") ? true : false,
+                "S_GeneralSupport": program_services.include?("GeneralSupport") ? true : false,
+                "S_Housing": program_services.include?("Housing") ? true : false,
+                "S_Identification": program_services.include?("Identification") ? true : false,
+                "S_IndependentLiving": program_services.include?("IndependentLiving") ? true : false,
+                "S_Legal": program_services.include?("Legal") ? true : false,
+                "S_Lists & Guides": program_services.include?("Lists & Guides") ? true : false,
+                "S_Medical": program_services.include?("Medical") ? true : false,
+                "S_Research": program_services.include?("Research") ? true : false,
+                "S_Resources": program_services.include?("Resources") ? true : false,
+                "S_Respite": program_services.include?("Respite") ? true : false,
+                "S_Senior": program_services.include?("Senior") ? true : false,
+                "S_Transportation": program_services.include?("Transportation") ? true : false,
+                "S_Veterans": program_services.include?("Veterans") ? true : false,
+                "S_Victim": program_services.include?("Victim") ? true : false,
+                "S_Vision": program_services.include?("Vision") ? true : false,
+                "SelectprogramID": "1",
+                "ServiceAreaDescription": [
+                    {
+
+                    }
+                ],
+                "ServiceAreaDescriptionDisplay": p.service_area_description_display,
+                "ServiceTags": p_service_tags
+            }
+        ],
+        "status": "Approved",
+        "url": org.domain
+    }
+
+      provider_list.push(provider)
+    end
+    provider_list
+
+
+
+  end
+
+
+
 
   def split_values(query_array)
     new_array = []
@@ -670,13 +856,14 @@ class OrgsController < ApplicationController
       if !p.org.inactive?
         true_array = []
         tags.each do |t|
-          if !p.service_tags.where(name: t).blank?
-            true_array.push("true")
+          if !p.service_tags.where("name ILike ?", "%" + t + "%").blank?
+            # true_array.push("true")
+            programs_array.push(p)
           end
         end
-        if true_array.count == tags_count
-          programs_array.push(p)
-        end
+        # if true_array.count == tags_count
+        #   # programs_array.push(p)
+        # end
       end
     end
 
