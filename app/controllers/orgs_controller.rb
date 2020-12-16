@@ -320,6 +320,7 @@ class OrgsController < ApplicationController
     prgm.population_description_display = p["PopulationDescriptionDisplay"] if p["PopulationDescriptionDisplay"]
     prgm.service_area_description_display = p["ServiceAreaDescriptionDisplay"] if p["ServiceAreaDescriptionDisplay"]
     prgm.inactive = p["InactiveProgram"] if p["InactiveProgram"]
+    prgm.attached_sites = p["ProgramSites"] if p["ProgramSites"]
     prgm.org_id = org.id
     if prgm.save
       attached_sites = p["ProgramSites"]
@@ -403,6 +404,7 @@ class OrgsController < ApplicationController
     s.delivery = site["ServiceDeliverySite"] if site["ServiceDeliverySite"]
     s.resource_dir = site["ResourceDirectory"] if site["ResourceDirectory"]
     s.inactive = site["InactiveSite"] if site["InactiveSite"]
+    s.select_site_id = site["SelectSiteID"] if site["SelectSiteID"]
     s.org_id = org.id
     if s.save
       logger.debug("******* SITE IS SAVED******")
@@ -580,46 +582,49 @@ class OrgsController < ApplicationController
       program_sites_array = [ ]
 
       p_sites.each do |ps|
-        pocs = ps.pocs
-        location = Location.where(sites_id: ps.id)
+        # pocs = ps.pocs
+        location = Location.where(sites_id: ps.id).first
 
-        site = {
-            "Addr1": [
-                {
-                    "Domain": "n/a",
-                    "Text": location.addr1,
-                    "Xpath": "n/a"
-                }
-            ],
-            "AddrCity": location.city,
-            "AddrState": location.state,
-            "AddrZip": location.zip,
-            # "AdminSite": true,
-            # "DefaultPOC": false,
-            "Email": location.email,
-            # "InactivePOC": false,
-            "InactiveSite": ps.inactive.nil? ? false : ps.inactive ,
-            "LocationName": ps.site_name,
-            "Name": ps.name,
-            "OfficePhone": location.phone
-            # "POCs": [
-            #     {
-            #         "id": "1.0",
-            #         "poc": {
-            #             "DefaultPOC": false,
-            #             "Email": "ContactCHS@doh.wa.gov",
-            #             "InactivePOC": false,
-            #             "Name": "Office",
-            #             "OfficePhone": "(360) 236-4300"
-            #         }
-            #     }
-            # ],
-            # "ResourceDirectory": false,
-            # "SelectSiteID": "1",
-            # "ServiceDeliverySite": true
-        }
+        if !location.nil?
+          site = {
+              "Addr1": [
+                  {
+                      "Domain": "n/a",
+                      "Text": location.addr1,
+                      "Xpath": "n/a"
+                  }
+              ],
+              "AddrCity": location.city,
+              "AddrState": location.state,
+              "AddrZip": location.zip,
+              # "AdminSite": true,
+              # "DefaultPOC": false,
+              "Email": location.email,
+              # "InactivePOC": false,
+              "InactiveSite": ps.inactive.nil? ? false : ps.inactive ,
+              "LocationName": ps.site_name,
+              "Name": ps.name,
+              "OfficePhone": location.phone,
+              # "POCs": [
+              #     {
+              #         "id": "1.0",
+              #         "poc": {
+              #             "DefaultPOC": false,
+              #             "Email": "ContactCHS@doh.wa.gov",
+              #             "InactivePOC": false,
+              #             "Name": "Office",
+              #             "OfficePhone": "(360) 236-4300"
+              #         }
+              #     }
+              # ],
+              # "ResourceDirectory": false,
+              "SelectSiteID": ps.select_site_id
+              # "ServiceDeliverySite": true
+          }
 
-        program_sites_array.push(site)
+          program_sites_array.push(site)
+        end
+
 
       end
 
@@ -666,8 +671,7 @@ class OrgsController < ApplicationController
         },
         "OrgSites": program_sites_array ,
         "poc_emailed": true,
-        "Programs": [
-            {
+        "Programs": {
                 "ContactWebPage": p.contact_url,
                 "InactiveProgram": p.inactive.nil? ? false : p.inactive,
                 "P_Any": program_population.include?("Any") ? true : false,
@@ -687,6 +691,7 @@ class OrgsController < ApplicationController
                 ],
                 "ProgramDescriptionDisplay": p.program_description_display,
                 "ProgramName": p.name,
+                "ProgramSites": p.attached_sites,
                 "QuickConnectWebPage": p.quick_url,
                 "S_Abuse": program_services.include?("Any") ? true : false,
                 "S_Addiction": program_services.include?("Addiction") ? true : false,
@@ -727,8 +732,7 @@ class OrgsController < ApplicationController
                 ],
                 "ServiceAreaDescriptionDisplay": p.service_area_description_display,
                 "ServiceTags": p_service_tags
-            }
-        ],
+            },
         "status": "Approved",
         "url": org.domain
     }

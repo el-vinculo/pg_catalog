@@ -9,6 +9,7 @@ class CreateSites < ActiveRecord::Migration[5.2]
       t.boolean :delivery
       t.boolean :resource_dir
       t.boolean :inactive
+      t.string :select_site_id
 
       t.belongs_to :org, index: true
 

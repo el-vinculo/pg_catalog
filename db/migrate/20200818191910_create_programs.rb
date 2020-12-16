@@ -12,6 +12,8 @@ class CreatePrograms < ActiveRecord::Migration[5.2]
 
       t.belongs_to :org, index: true
 
+      t.text :attached_sites, array: true, default: []
+
       t.timestamps
     end
   end
