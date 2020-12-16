@@ -491,9 +491,10 @@ class OrgsController < ApplicationController
 
     elsif query_params.sort == ["tags","application_name"].sort
       logger.debug("*********IN THE TAGS")
-      tags = params["search_params"]["tags"]
-      # all_programs = filter_tags(tags,all_acttive_programs)
-      all_programs = Program.joins(:service_tags).where(service_tags: {name: tags}, inactive: nil)
+      # tags = params["search_params"]["tags"]
+      tags = params["search_params"]["tags"].collect(&:strip)
+      all_programs = filter_tags(tags,all_acttive_programs)
+      #all_programs = Program.joins(:service_tags).where(service_tags: {name: tags}, inactive: nil)
 
     elsif query_params.sort == ["population","application_name"].sort
       logger.debug("*********IN the population")
@@ -541,7 +542,8 @@ class OrgsController < ApplicationController
       end
       if query_params.include? ('tags')
         logger.debug("************IN the final else-------------TAGS---#{programs.count}")
-        tags = params["search_params"]["tags"]
+        # tags = params["search_params"]["tags"]
+        tags = params["search_params"]["tags"].collect(&:strip)
         programs = filter_tags(tags,programs)
         # programs = programs.joins(:service_tags).where(service_tags: {name: tags})
       end
@@ -859,6 +861,7 @@ class OrgsController < ApplicationController
           if !p.service_tags.where("name ILike ?", "%" + t + "%").blank?
             # true_array.push("true")
             programs_array.push(p)
+            break
           end
         end
         # if true_array.count == tags_count
