@@ -605,18 +605,18 @@ class OrgsController < ApplicationController
               "LocationName": ps.site_name,
               "Name": ps.name,
               "OfficePhone": location.phone,
-              # "POCs": [
-              #     {
-              #         "id": "1.0",
-              #         "poc": {
-              #             "DefaultPOC": false,
-              #             "Email": "ContactCHS@doh.wa.gov",
-              #             "InactivePOC": false,
-              #             "Name": "Office",
-              #             "OfficePhone": "(360) 236-4300"
-              #         }
-              #     }
-              # ],
+              "POCs": [
+                  {
+                      "id": "1.0",
+                      "poc": {
+                          # "DefaultPOC": false,
+                          "Email": location.email,
+                          # "InactivePOC": false,
+                          "Name": ps.name,
+                          "OfficePhone": location.phone
+                      }
+                  }
+              ],
               # "ResourceDirectory": false,
               "SelectSiteID": ps.select_site_id
               # "ServiceDeliverySite": true
