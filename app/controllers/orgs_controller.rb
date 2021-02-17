@@ -539,8 +539,8 @@ class OrgsController < ApplicationController
       if query_params.include? ('population')
         logger.debug("************IN the final else-----------POPULATION")
         population_groups = split_values(params["search_params"]["population"]["value"])
-        programs = programs.joins(:population_groups).where(population_groups: {name: population_groups})
-        # programs = filter_population_groups(population_groups, programs)
+        #programs = programs.joins(:population_groups).where(population_groups: {name: population_groups})
+        programs = filter_population_groups(population_groups, programs)
       end
       if query_params.include? ('tags')
         logger.debug("************IN the final else-------------TAGS---#{programs.count}")
@@ -660,13 +660,13 @@ class OrgsController < ApplicationController
                     "Xpath": org_name_grab_field.xpath.nil? ? "n/a" : org_name_grab_field.xpath
                 }
             ],
-            # "OrgDescription": [
-            #     {
-            #         "Domain": "https://arcwa.org/",
-            #         "Text": "The Arc  and personal choices.",
-            #         "Xpath": "span"
-            #     }
-            # ],
+            "OrgDescription": [
+                {
+                    # "Domain": "https://arcwa.org/",
+                    "Text": org.description_display.nil? ? "n/a" : org.description_display
+                    # "Xpath": "span"
+                }
+            ],
             "Type": org.org_type
         },
         "OrgSites": program_sites_array ,
@@ -693,7 +693,7 @@ class OrgsController < ApplicationController
                 "ProgramName": p.name,
                 "ProgramSites": p.attached_sites,
                 "QuickConnectWebPage": p.quick_url,
-                "S_Abuse": program_services.include?("Any") ? true : false,
+                "S_Abuse": program_services.include?("Abuse") ? true : false,
                 "S_Addiction": program_services.include?("Addiction") ? true : false,
                 "S_BasicNeeds": program_services.include?("BasicNeeds") ? true : false,
                 "S_Behavioral": program_services.include?("Behavioral") ? true : false,
@@ -838,14 +838,34 @@ class OrgsController < ApplicationController
 
   def filter_name(name,program)
     programs_array = []
-    logger.debug("**********IN the filter name #{name}")
+    #logger.debug("**********IN the filter name #{name}")
 
     program.each do |p|
 
       if !p.org.inactive?
         if p.org.name.downcase.include?(name.downcase)
-          logger.debug("****The name is a match #{p.org.name}")
+          #logger.debug("****The name is a match #{p.org.name}")
           programs_array.push(p)
+        end
+      end
+    end
+
+    programs_array
+    # Org.where("name ILike ?", "%" + name + "%")
+  end
+
+  def filter_prog_desc(prog_description,program)
+    programs_array = []
+    #logger.debug("**********IN the filter name #{name}")
+
+    program.each do |p|
+
+      if !p.org.inactive?
+        if !p.program_description_display.nil?
+          if p.program_description_display.downcase.include?(prog_description.downcase)
+            #logger.debug("****The name is a match #{p.org.name}")
+            programs_array.push(p)
+          end
         end
       end
     end
@@ -899,6 +919,162 @@ class OrgsController < ApplicationController
 
     programs_array
     # Program.joins(:service_groups).where(service_groups: {name: service_groups})
+  end
+
+
+  def advanced_search
+    #PopulationContainer: [{Value: “care”, modifier: “False”, connector: “AND|OR”},
+    # {Value: “Citizenship”, modifier: “False”, connector: “AND|OR”}]
+
+    query_params = params["search_params"].keys
+
+    service_group_result = []
+    population_group_result = []
+    service_tag_result = []
+    org_name_result = []
+    prog_description_result = []
+    final_program_array = []
+
+
+    # logger.debug("query_params iss : #{query_params.empty?}")
+    # service_groups = split_values(params["search_params"]["services"]["value"])
+    # if query_params.sort == ["ServiceGroupsContainer"].sort
+    if query_params.empty?
+      # logger.debug("**************you are in the epmty")
+      all_active_programs = Program.where(inactive: nil)
+      final_program_array = all_active_programs
+      # logger.debug("**********active programs are #{final_program_array.count}")
+    else
+      if query_params.include?("ServiceGroupsContainer")
+        program_name_array = []
+
+        service_group_container = params["search_params"]["ServiceGroupsContainer"]
+        service_group_container.each do |s|
+          service_group = ServiceGroup.find_by_name(s["value"])
+          service_programs = service_group.programs.pluck(:name)
+          program_name_array = create_program_names_array(program_name_array, s, service_programs)
+        end
+
+        # logger.debug("*************the program name array for service group is : #{program_name_array}")
+
+        service_group_result = fdsdkfe(program_name_array, service_group_container )
+        # logger.debug("*********** THE FINAL RESULT IN service_group_container IS: #{service_group_result} ")
+      end
+
+      if query_params.sort == ["PopGroupContainer"].sort
+        program_name_array = []
+
+        population_group_container = params["search_params"]["PopGroupContainer"]
+        population_group_container.each do |s|
+          population_group_programs=  PopulationGroup.find_by_name(s["value"]).programs.pluck(:name)
+          program_name_array = create_program_names_array(program_name_array, s, population_group_programs)
+        end
+        population_group_result = fdsdkfe(program_name_array, population_group_container )
+        # logger.debug("*********** THE FINAL RESULT IN population_group_container IS: #{population_group_result} ")
+
+      # elsif query_params.sort == ["ServiceTagsContainer"].sort
+      end
+
+      if query_params.include?("ServiceTagsContainer")
+
+        program_name_array = []
+
+        service_tag_container = params["search_params"]["ServiceTagsContainer"]
+        service_tag_container.each do |s|
+          service_tag_programs =  ServiceTag.find_by_name(s["value"]).programs.pluck(:name)
+          program_name_array = create_program_names_array(program_name_array, s, service_tag_programs)
+        end
+        service_tag_result = fdsdkfe(program_name_array, service_tag_container )
+        # logger.debug("*********** THE FINAL RESULT IN service_tag_container IS: #{service_tag_result} ")
+      end
+
+      if query_params.include? ('name')
+        all_acttive_programs = Program.where(inactive: nil)
+        # logger.debug("************IN the final else------------NAME")
+        org_name = params["search_params"]["name"]
+        programs = filter_name(org_name,all_acttive_programs)
+        org_name_result = programs.pluck(:name)
+
+        # logger.debug("*********** THE FINAL RESULT IN NAME IS: #{org_name_result} ")
+      end
+
+      if query_params.include? ('ProgDescr')
+
+        all_acttive_programs = Program.where(inactive: nil)
+        # logger.debug("************IN the final else------------NAME")
+        prog_description = params["search_params"]["ProgDescr"]
+        programs = filter_prog_desc(prog_description,all_acttive_programs)
+        prog_description_result = programs.pluck(:name)
+
+        # logger.debug("*********** THE FINAL RESULT IN PROGRAM DESCRIPTION IS: #{prog_description_result} ")
+
+      end
+
+      # logger.debug("service_group_result: #{service_group_result.count}, population_group_result: #{population_group_result.count},
+      #            service_tag_result: #{service_tag_result.count}, org_name_result: #{org_name_result.count}, prog_description_result: #{prog_description_result.count}  ")
+      final_program_names = (service_group_result + population_group_result + service_tag_result + org_name_result +
+          prog_description_result).uniq
+
+      final_program_array = []
+      final_program_names.each do |pn|
+        program = Program.find_by_name(pn)
+        if program.inactive != true
+          final_program_array.push(program)
+        end
+      end
+    end
+
+    complete_result = create_complete_hash(final_program_array)
+
+    render :json => {status: :ok, result_count: complete_result.count , complete_result: complete_result }
+
+  end
+
+  def create_program_names_array(program_name_array, s, program_names)
+    if s["modifier"] == "False"
+      program_name_array.push(program_names)
+
+    else
+      all_programs = Program.all.pluck(:name)
+      prog = all_programs - program_names
+      program_name_array.push(prog)
+    end
+    program_name_array
+  end
+
+  def fdsdkfe(program_name_array, p )
+
+    r = []
+    p.each_with_index do |ser, i |
+      # puts("*********** THE VALUE OF I IS : #{i} ----- ")
+
+      if p.length == 1
+        r = program_name_array[0]
+      else
+        break if i == program_name_array.length - 1
+        if ser[:connector] == "AND"
+          if i == 0
+            r = program_name_array[0] & program_name_array[1]
+          else
+            # puts("********* THE VALUE ID R in and IS : #{r}")
+            r = r & program_name_array[i +1 ]
+          end
+          # puts("******** C in AND IS : #{r}")
+        elsif ser[:connector] == "OR"
+          if i == 0
+            r = program_name_array[0] | program_name_array[1]
+          else
+            r = r | program_name_array[i +1 ]
+          end
+          # puts("******** C in OR IS : #{r}")
+        end
+        # puts("********* THE VALUE ID R IS : #{r}")
+      end
+    end
+
+
+    r
+
   end
 
 

@@ -11,5 +11,6 @@ Rails.application.routes.draw do
   post "/update_programs", to: "orgs#update_programs"
   post "/update_sites", to: "orgs#update_sites"
   post "/catalog_search", to: "orgs#catalog_search"
+  post "/advanced_search", to: "orgs#advanced_search"
 
 end
