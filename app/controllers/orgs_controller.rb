@@ -692,6 +692,7 @@ class OrgsController < ApplicationController
                 "ProgramDescriptionDisplay": p.program_description_display,
                 "ProgramName": p.name,
                 "ProgramSites": p.attached_sites,
+                "ProgramWebPage": p.program_url ,
                 "QuickConnectWebPage": p.quick_url,
                 "S_Abuse": program_services.include?("Abuse") ? true : false,
                 "S_Addiction": program_services.include?("Addiction") ? true : false,
@@ -1076,6 +1077,38 @@ class OrgsController < ApplicationController
     r
 
   end
+
+
+  def service_group_list
+
+    sg_list = ServiceGroup.where("name ILIKE ?", "%#{params[:search_params][:text]}%").pluck(:name)
+
+    render :json => {status: :ok, sg_list: sg_list }
+
+
+  end
+
+  def population_group_list
+
+    popg_list = PopulationGroup.where("name ILIKE ?", "%#{params[:search_params][:text]}%").pluck(:name)
+
+    render :json => {status: :ok, popg_list: popg_list }
+
+  end
+
+  def service_tag_list
+
+    stg_list = ServiceTag.where("name ILIKE ?", "%#{params[:search_params][:text]}%").pluck(:name)
+
+    render :json => {status: :ok, stg_list: stg_list }
+
+  end
+
+  def category_list
+
+
+  end
+
 
 
   private
