@@ -934,6 +934,8 @@ class OrgsController < ApplicationController
     service_tag_result = []
     org_name_result = []
     prog_description_result = []
+    geo_scope_result = []
+    search_category_result_array = []
     final_program_array = []
 
 
@@ -959,10 +961,11 @@ class OrgsController < ApplicationController
         # logger.debug("*************the program name array for service group is : #{program_name_array}")
 
         service_group_result = fdsdkfe(program_name_array, service_group_container )
-        # logger.debug("*********** THE FINAL RESULT IN service_group_container IS: #{service_group_result} ")
+        search_category_result_array.push(service_group_result)
+        # logger.debug("*********** THE FINAL RESULT IN service_group_container IS: {service_group_result} ")
       end
 
-      if query_params.sort == ["PopGroupContainer"].sort
+      if query_params.include?("PopGroupContainer")
         program_name_array = []
 
         population_group_container = params["search_params"]["PopGroupContainer"]
@@ -971,7 +974,9 @@ class OrgsController < ApplicationController
           program_name_array = create_program_names_array(program_name_array, s, population_group_programs)
         end
         population_group_result = fdsdkfe(program_name_array, population_group_container )
-        # logger.debug("*********** THE FINAL RESULT IN population_group_container IS: #{population_group_result} ")
+
+        search_category_result_array.push(population_group_result )
+        # logger.debug("*********** THE FINAL RESULT IN population_group_container IS: {population_group_result} ")
 
       # elsif query_params.sort == ["ServiceTagsContainer"].sort
       end
@@ -986,6 +991,8 @@ class OrgsController < ApplicationController
           program_name_array = create_program_names_array(program_name_array, s, service_tag_programs)
         end
         service_tag_result = fdsdkfe(program_name_array, service_tag_container )
+
+        search_category_result_array.push(service_tag_result)
         # logger.debug("*********** THE FINAL RESULT IN service_tag_container IS: #{service_tag_result} ")
       end
 
@@ -995,6 +1002,8 @@ class OrgsController < ApplicationController
         org_name = params["search_params"]["name"]
         programs = filter_name(org_name,all_acttive_programs)
         org_name_result = programs.pluck(:name)
+
+        search_category_result_array.push(org_name_result)
 
         # logger.debug("*********** THE FINAL RESULT IN NAME IS: #{org_name_result} ")
       end
@@ -1007,15 +1016,43 @@ class OrgsController < ApplicationController
         programs = filter_prog_desc(prog_description,all_acttive_programs)
         prog_description_result = programs.pluck(:name)
 
+        search_category_result_array.push(prog_description_result)
         # logger.debug("*********** THE FINAL RESULT IN PROGRAM DESCRIPTION IS: #{prog_description_result} ")
+
+      end
+
+      if query_params.include? ('GeoScope')
+        scope_value = params["search_params"]["GeoScope"]["value"]
+        scope_type = params["search_params"]["GeoScope"]["type"]
+        programs = filter_scope(scope_value, scope_type, programs)
+        geo_scope_result = programs.pluck(:name)
+
+        search_category_result_array.push(geo_scope_result)
+      end
+
+      # logger.debug("*************** the  search_category_result_array #{search_category_result_array}")
+      final_program_names = []
+      search_category_result_array.each_with_index do |scra, i |
+        # logger.debug("*************** the lenght of search_category_result_array #{search_category_result_array.length}")
+        if search_category_result_array.length == 1
+          final_program_names = scra
+        else
+          # logger.debug("*************** the value of I is #{i}")
+          if i == 1
+            final_program_names = search_category_result_array[0] & search_category_result_array[1]
+          else
+            final_program_names = final_program_names & search_category_result_array[i]
+          end
+        end
 
       end
 
       # logger.debug("service_group_result: #{service_group_result.count}, population_group_result: #{population_group_result.count},
       #            service_tag_result: #{service_tag_result.count}, org_name_result: #{org_name_result.count}, prog_description_result: #{prog_description_result.count}  ")
-      final_program_names = (service_group_result + population_group_result + service_tag_result + org_name_result +
-          prog_description_result).uniq
+      # final_program_names = (service_group_result + population_group_result + service_tag_result + org_name_result +
+      #     prog_description_result + geo_scope_result ).uniq
 
+      # logger.debug("************ the final program names are --- #{final_program_names}")
       final_program_array = []
       final_program_names.each do |pn|
         program = Program.find_by_name(pn)
@@ -1052,20 +1089,20 @@ class OrgsController < ApplicationController
       if p.length == 1
         r = program_name_array[0]
       else
-        break if i == program_name_array.length - 1
+        next if i == 0
         if ser[:connector] == "AND"
-          if i == 0
+          if i == 1
             r = program_name_array[0] & program_name_array[1]
           else
             # puts("********* THE VALUE ID R in and IS : #{r}")
-            r = r & program_name_array[i +1 ]
+            r = r & program_name_array[i -1 ]
           end
           # puts("******** C in AND IS : #{r}")
         elsif ser[:connector] == "OR"
-          if i == 0
+          if i == 1
             r = program_name_array[0] | program_name_array[1]
           else
-            r = r | program_name_array[i +1 ]
+            r = r | program_name_array[i -1 ]
           end
           # puts("******** C in OR IS : #{r}")
         end
