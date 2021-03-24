@@ -1,0 +1,2 @@
+class FavoriteQuery < ApplicationRecord
+end

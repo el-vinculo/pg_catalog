@@ -735,7 +735,8 @@ class OrgsController < ApplicationController
                 "ServiceTags": p_service_tags
             },
         "status": "Approved",
-        "url": org.domain
+        "url": org.domain,
+        "id": p.id
     }
 
       provider_list.push(provider)
@@ -926,6 +927,13 @@ class OrgsController < ApplicationController
   def advanced_search
     #PopulationContainer: [{Value: “care”, modifier: “False”, connector: “AND|OR”},
     # {Value: “Citizenship”, modifier: “False”, connector: “AND|OR”}]
+    f_query = FavoriteQuery.new
+    f_query.query_name = params["query_name"]
+    f_query.owner = params[:email] if params[:email]
+    f_query.query_count = 1
+    f_query.global = params["global_query"]
+    f_query.search_query = params["search_params"]
+    f_query.save
 
     query_params = params["search_params"].keys
 
@@ -1024,7 +1032,8 @@ class OrgsController < ApplicationController
       if query_params.include? ('GeoScope')
         scope_value = params["search_params"]["GeoScope"]["value"]
         scope_type = params["search_params"]["GeoScope"]["type"]
-        programs = filter_scope(scope_value, scope_type, programs)
+        all_active_programs = Program.where(inactive: nil)
+        programs = filter_scope(scope_value, scope_type, all_active_programs)
         geo_scope_result = programs.pluck(:name)
 
         search_category_result_array.push(geo_scope_result)
@@ -1119,7 +1128,7 @@ class OrgsController < ApplicationController
   def service_group_list
 
     sg_list = ServiceGroup.where("name ILIKE ?", "%#{params[:search_params][:text]}%").pluck(:name)
-
+    sg_list.delete("Lists & Guides")
     render :json => {status: :ok, sg_list: sg_list }
 
 
