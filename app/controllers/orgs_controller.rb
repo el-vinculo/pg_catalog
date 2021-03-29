@@ -927,12 +927,23 @@ class OrgsController < ApplicationController
   def advanced_search
     #PopulationContainer: [{Value: “care”, modifier: “False”, connector: “AND|OR”},
     # {Value: “Citizenship”, modifier: “False”, connector: “AND|OR”}]
-    f_query = FavoriteQuery.new
-    f_query.query_name = params["query_name"]
-    f_query.owner = params[:email] if params[:email]
-    f_query.query_count = 1
-    f_query.global = params["global_query"]
-    f_query.search_query = params["search_params"]
+    existing_query = FavoriteQuery.where(search_query: params["search_params"].to_s, owner: params[:email])
+    if !existing_query.empty?
+      logger.debug("**********already Existing Query")
+      f_query = existing_query.first
+      f_query.query_count = f_query.query_count + 1
+      f_query.global = params["global_query"]
+
+    else
+      f_query = FavoriteQuery.new
+      f_query.query_name = params["query_name"]
+      f_query.owner = params[:email] if params[:email]
+      f_query.query_count = 1
+      f_query.global = params["global_query"]
+      f_query.search_query = params["search_params"].to_s
+
+    end
+
     f_query.save
 
     query_params = params["search_params"].keys
@@ -1150,10 +1161,20 @@ class OrgsController < ApplicationController
 
   end
 
-  def category_list
+  def favorite_query_list
 
+    favorite_query_list_array = []
+    favorite_query_list = FavoriteQuery.where( owner: params[:email])
+
+    favorite_query_list.each do |fq|
+      fq_hash = {query_name: fq.query_name, query_hash: eval(fq.search_query)}
+      favorite_query_list_array.push(fq_hash)
+    end
+
+    render :json => {status: :ok, favorite_queries: favorite_query_list_array }
 
   end
+
 
 
 

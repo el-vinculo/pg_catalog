@@ -6,7 +6,8 @@ class CreateFavoriteQueries < ActiveRecord::Migration[5.2]
       t.string :owner
       t.integer :query_count
       t.boolean :global
-      t.json :search_query, default: {}
+      # t.json :search_query, default: {}
+      t.text :search_query, default: "{}"
       t.timestamps
 
     end
