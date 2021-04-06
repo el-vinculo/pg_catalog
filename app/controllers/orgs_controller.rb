@@ -1043,19 +1043,88 @@ class OrgsController < ApplicationController
       if query_params.include? ('GeoScope')
         scope_value = params["search_params"]["GeoScope"]["value"]
         scope_type = params["search_params"]["GeoScope"]["type"]
-        all_active_programs = Program.where(inactive: nil)
-        programs = filter_scope(scope_value, scope_type, all_active_programs)
-        geo_scope_result = programs.pluck(:name)
+        if scope_type == "Zipcode"
+          zipcode_programs = []
+          zipcode = scope_value
+          logger.debug("***********the zipcode is #{zipcode}")
+          zipcode_details = ZipCodes.identify(zipcode)
+          logger.debug("******** the zipcode details are : #{zipcode_details}")
+          zip_city = zipcode_details[:city]
+          zip_state = zipcode_details[:state_code]
+          city_prog_names = []
+          state_prog_names = []
+          zipcode_details.each do |zipd|
+            logger.debug("********the keys are #{zipd}")
+            if zipd[0].to_s == "state_code"
+              logger.debug("*******are you in here")
+              all_active_programs = Program.where(inactive: nil)
+              programs = filter_scope(zipd[1], "State", all_active_programs)
 
-        search_category_result_array.push(geo_scope_result)
+              state_prog_names = programs.pluck(:name)
+              # zipcode_programs.push(zip_prog_names)
+            elsif zipd[0].to_s == "city"
+              all_active_programs = Program.where(inactive: nil)
+              programs = filter_scope(zipd[1], "City", all_active_programs)
+              city_prog_names = programs.pluck(:name)
+              # zipcode_programs.push(zip_prog_names)
+            end
+          end
+          zipcode_programs = city_prog_names + (state_prog_names - city_prog_names)
+
+          search_category_result_array.push(zipcode_programs)
+        else
+          all_active_programs = Program.where(inactive: nil)
+          programs = filter_scope(scope_value, scope_type, all_active_programs)
+          geo_scope_result = programs.pluck(:name)
+
+          search_category_result_array.push(geo_scope_result)
+
+        end
+        # all_active_programs = Program.where(inactive: nil)
+        # programs = filter_scope(scope_value, scope_type, all_active_programs)
+        # geo_scope_result = programs.pluck(:name)
+        #
+        # search_category_result_array.push(geo_scope_result)
       end
 
-      # logger.debug("*************** the  search_category_result_array #{search_category_result_array}")
+      # if query_params.include? ('zipcode')
+      #   zipcode_programs = []
+      #   zipcode = params["search_params"]["zipcode"]
+      #   logger.debug("***********the zipcode is #{zipcode}")
+      #   zipcode_details = ZipCodes.identify(zipcode)
+      #   logger.debug("******** the zipcode details are : #{zipcode_details}")
+      #   zip_city = zipcode_details[:city]
+      #   zip_state = zipcode_details[:state_code]
+      #   city_prog_names = []
+      #   state_prog_names = []
+      #   zipcode_details.each do |zipd|
+      #     logger.debug("********the keys are #{zipd}")
+      #     if zipd[0].to_s == "state_code"
+      #       logger.debug("*******are you in here")
+      #       all_active_programs = Program.where(inactive: nil)
+      #       programs = filter_scope(zipd[1], "State", all_active_programs)
+      #
+      #       state_prog_names = programs.pluck(:name)
+      #       # zipcode_programs.push(zip_prog_names)
+      #     elsif zipd[0].to_s == "city"
+      #       all_active_programs = Program.where(inactive: nil)
+      #       programs = filter_scope(zipd[1], "City", all_active_programs)
+      #       city_prog_names = programs.pluck(:name)
+      #       # zipcode_programs.push(zip_prog_names)
+      #     end
+      #   end
+      #   zipcode_programs = city_prog_names + (state_prog_names - city_prog_names)
+      #
+      #   search_category_result_array.push(zipcode_programs)
+      #
+      # end
+
+      logger.debug("*************** the  search_category_result_array #{search_category_result_array}---------#{search_category_result_array.flatten.count}")
       final_program_names = []
       search_category_result_array.each_with_index do |scra, i |
-        # logger.debug("*************** the lenght of search_category_result_array #{search_category_result_array.length}")
+         logger.debug("*************** the lenght of search_category_result_array #{search_category_result_array.length}")
         if search_category_result_array.length == 1
-          final_program_names = scra
+          final_program_names = scra.flatten
         else
           # logger.debug("*************** the value of I is #{i}")
           if i == 1
@@ -1072,7 +1141,7 @@ class OrgsController < ApplicationController
       # final_program_names = (service_group_result + population_group_result + service_tag_result + org_name_result +
       #     prog_description_result + geo_scope_result ).uniq
 
-      # logger.debug("************ the final program names are --- #{final_program_names}")
+      logger.debug("************ the final program names are --- #{final_program_names}----------{final_program_names.count}")
       final_program_array = []
       final_program_names.each do |pn|
         program = Program.find_by_name(pn)
@@ -1083,6 +1152,7 @@ class OrgsController < ApplicationController
     end
 
     complete_result = create_complete_hash(final_program_array)
+    logger.debug("************* the complete result is ")
 
     render :json => {status: :ok, result_count: complete_result.count , complete_result: complete_result }
 
@@ -1167,15 +1237,13 @@ class OrgsController < ApplicationController
     favorite_query_list = FavoriteQuery.where( owner: params[:email])
 
     favorite_query_list.each do |fq|
-      fq_hash = {query_name: fq.query_name, query_hash: eval(fq.search_query)}
+      fq_hash = {query_name: fq.query_name, query_hash: eval(fq.search_query), global: fq.global, created_at: fq.created_at}
       favorite_query_list_array.push(fq_hash)
     end
 
     render :json => {status: :ok, favorite_queries: favorite_query_list_array }
 
   end
-
-
 
 
   private
