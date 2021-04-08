@@ -1245,6 +1245,16 @@ class OrgsController < ApplicationController
 
   end
 
+  def delete_favorit_query
+
+    favorite_query = FavoriteQuery.find(params[:search_params])
+
+    if favorite_query.destroy
+      render :json => {status: :ok, message: "Query was deleted" }
+    end
+
+  end
+
 
   private
     # Use callbacks to share common setup or constraints between actions.
