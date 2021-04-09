@@ -1071,7 +1071,10 @@ class OrgsController < ApplicationController
           end
           zipcode_programs = city_prog_names + (state_prog_names - city_prog_names)
 
+          final_state_prog_names = state_prog_names - city_prog_names
+          zip_result = temp_zipcode_work(city_prog_names, final_state_prog_names )
           search_category_result_array.push(zipcode_programs)
+          render :json => {status: :ok, complete_result: zip_result }
         else
           all_active_programs = Program.where(inactive: nil)
           programs = filter_scope(scope_value, scope_type, all_active_programs)
@@ -1156,6 +1159,30 @@ class OrgsController < ApplicationController
 
     render :json => {status: :ok, result_count: complete_result.count , complete_result: complete_result }
 
+  end
+
+  def temp_zipcode_work(city_prog_names, final_state_prog_names )
+    state_program_array = []
+    city_program_array = []
+
+    city_prog_names.each do |pn|
+      program = Program.find_by_name(pn)
+      if program.inactive != true
+        city_program_array.push(program)
+      end
+    end
+
+    final_state_prog_names.each do |pn|
+      program = Program.find_by_name(pn)
+      if program.inactive != true
+        state_program_array.push(program)
+      end
+    end
+
+    complete_city_result = create_complete_hash(city_program_array)
+    complete_state_result = create_complete_hash(state_program_array)
+
+    result = {city: complete_city_result,city_count: complete_city_result.count , state: complete_state_result, state_count: complete_state_result.count }
   end
 
   def create_program_names_array(program_name_array, s, program_names)
