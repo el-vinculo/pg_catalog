@@ -1043,46 +1043,62 @@ class OrgsController < ApplicationController
       if query_params.include? ('GeoScope')
         scope_value = params["search_params"]["GeoScope"]["value"]
         scope_type = params["search_params"]["GeoScope"]["type"]
-        if scope_type == "Zipcode"
-          zipcode_programs = []
-          zipcode = scope_value
-          logger.debug("***********the zipcode is #{zipcode}")
-          zipcode_details = ZipCodes.identify(zipcode)
-          logger.debug("******** the zipcode details are : #{zipcode_details}")
-          zip_city = zipcode_details[:city]
-          zip_state = zipcode_details[:state_code]
-          city_prog_names = []
-          state_prog_names = []
-          zipcode_details.each do |zipd|
-            logger.debug("********the keys are #{zipd}")
-            if zipd[0].to_s == "state_code"
-              logger.debug("*******are you in here")
-              all_active_programs = Program.where(inactive: nil)
-              programs = filter_scope(zipd[1], "State", all_active_programs)
-
-              state_prog_names = programs.pluck(:name)
-              # zipcode_programs.push(zip_prog_names)
-            elsif zipd[0].to_s == "city"
-              all_active_programs = Program.where(inactive: nil)
-              programs = filter_scope(zipd[1], "City", all_active_programs)
-              city_prog_names = programs.pluck(:name)
-              # zipcode_programs.push(zip_prog_names)
-            end
-          end
-          zipcode_programs = city_prog_names + (state_prog_names - city_prog_names)
-
-          final_state_prog_names = state_prog_names - city_prog_names
-          zip_result = temp_zipcode_work(city_prog_names, final_state_prog_names )
-          search_category_result_array.push(zipcode_programs)
-          render :json => {status: :ok, complete_result: zip_result }
-        else
+        # if scope_type == "Zipcode"
+        #   zipcode_programs = []
+        #   zipcode = scope_value
+        #   logger.debug("***********the zipcode is #{zipcode}")
+        #   zip = Zipcode.find_by_code('98103')
+        #   city = zip.city
+        #   county = zip.county.name
+        #   state = zip.state.abbr
+        #   zipcode_details = {city: city, state_code: state, county: county}
+        #   logger.debug("******** the zipcode details are : #{zipcode_details}")
+        #   # zip_city = zipcode_details[:city]
+        #   # zip_state = zipcode_details[:state_code]
+        #   city_prog_names = []
+        #   state_prog_names = []
+        #   county_prog_names = []
+        #   zipcode_details.each do |zipd|
+        #     logger.debug("********the keys are #{zipd}")
+        #     if zipd[0].to_s == "state_code"
+        #       logger.debug("*******are you in here")
+        #       all_active_programs = Program.where(inactive: nil)
+        #       programs = filter_scope(zipd[1], "State", all_active_programs)
+        #
+        #       state_prog_names = programs.pluck(:name)
+        #       # zipcode_programs.push(zip_prog_names)
+        #     elsif zipd[0].to_s == "city"
+        #       all_active_programs = Program.where(inactive: nil)
+        #       programs = filter_scope(zipd[1], "City", all_active_programs)
+        #       city_prog_names = programs.pluck(:name)
+        #       # zipcode_programs.push(zip_prog_names)
+        #     elsif zipd[0].to_s == "county"
+        #       all_active_programs = Program.where(inactive: nil)
+        #       programs = filter_scope(zipd[1], "County", all_active_programs)
+        #       county_prog_names = programs.pluck(:name)
+        #
+        #     end
+        #   end
+        #
+        #   final_county_prog_names = county_prog_names - city_prog_names
+        #   final_state_prog_names = state_prog_names - final_county_prog_names
+        #
+        #   zipcode_programs = city_prog_names + final_state_prog_names
+        #
+        #
+        #   zip_result = temp_zipcode_work(city_prog_names, final_state_prog_names, final_county_prog_names )
+        #   search_category_result_array.push(zipcode_programs)
+        #   render :json => {status: :ok, complete_result: zip_result } and return
+        # else
+        unless scope_type == "Zipcode"
           all_active_programs = Program.where(inactive: nil)
           programs = filter_scope(scope_value, scope_type, all_active_programs)
           geo_scope_result = programs.pluck(:name)
 
           search_category_result_array.push(geo_scope_result)
-
         end
+
+        # end
         # all_active_programs = Program.where(inactive: nil)
         # programs = filter_scope(scope_value, scope_type, all_active_programs)
         # geo_scope_result = programs.pluck(:name)
@@ -1090,37 +1106,6 @@ class OrgsController < ApplicationController
         # search_category_result_array.push(geo_scope_result)
       end
 
-      # if query_params.include? ('zipcode')
-      #   zipcode_programs = []
-      #   zipcode = params["search_params"]["zipcode"]
-      #   logger.debug("***********the zipcode is #{zipcode}")
-      #   zipcode_details = ZipCodes.identify(zipcode)
-      #   logger.debug("******** the zipcode details are : #{zipcode_details}")
-      #   zip_city = zipcode_details[:city]
-      #   zip_state = zipcode_details[:state_code]
-      #   city_prog_names = []
-      #   state_prog_names = []
-      #   zipcode_details.each do |zipd|
-      #     logger.debug("********the keys are #{zipd}")
-      #     if zipd[0].to_s == "state_code"
-      #       logger.debug("*******are you in here")
-      #       all_active_programs = Program.where(inactive: nil)
-      #       programs = filter_scope(zipd[1], "State", all_active_programs)
-      #
-      #       state_prog_names = programs.pluck(:name)
-      #       # zipcode_programs.push(zip_prog_names)
-      #     elsif zipd[0].to_s == "city"
-      #       all_active_programs = Program.where(inactive: nil)
-      #       programs = filter_scope(zipd[1], "City", all_active_programs)
-      #       city_prog_names = programs.pluck(:name)
-      #       # zipcode_programs.push(zip_prog_names)
-      #     end
-      #   end
-      #   zipcode_programs = city_prog_names + (state_prog_names - city_prog_names)
-      #
-      #   search_category_result_array.push(zipcode_programs)
-      #
-      # end
 
       logger.debug("*************** the  search_category_result_array #{search_category_result_array}---------#{search_category_result_array.flatten.count}")
       final_program_names = []
@@ -1137,6 +1122,66 @@ class OrgsController < ApplicationController
           end
         end
 
+      end
+
+
+      logger.debug("************final array just before going to zip geo #{final_program_names.blank?} ")
+      if query_params.include? ('GeoScope')
+        scope_value = params["search_params"]["GeoScope"]["value"]
+        scope_type = params["search_params"]["GeoScope"]["type"]
+        if scope_type == "Zipcode"
+          zipcode_programs = []
+          zipcode = scope_value
+          logger.debug("***********the zipcode is #{zipcode}------------final prog names #{final_program_names.blank?}--")
+          zip = Zipcode.find_by_code(zipcode)
+          city = zip.city
+          county = zip.county.name
+          state = zip.state.abbr
+          zipcode_details = {city: city, state_code: state, county: county}
+          logger.debug("******** the zipcode details are : #{zipcode_details}")
+          # zip_city = zipcode_details[:city]
+          # zip_state = zipcode_details[:state_code]
+          city_prog_names = []
+          state_prog_names = []
+          county_prog_names = []
+          zipcode_details.each do |zipd|
+            logger.debug("********the keys are #{zipd}")
+            if zipd[0].to_s == "state_code"
+              logger.debug("*******are you in here")
+              all_active_programs = Program.where(inactive: nil)
+              programs = filter_scope(zipd[1], "State", all_active_programs)
+
+              state_prog_names = programs.pluck(:name)
+              # zipcode_programs.push(zip_prog_names)
+            elsif zipd[0].to_s == "city"
+              all_active_programs = Program.where(inactive: nil)
+              programs = filter_scope(zipd[1], "City", all_active_programs)
+              city_prog_names = programs.pluck(:name)
+              # zipcode_programs.push(zip_prog_names)
+            elsif zipd[0].to_s == "county"
+              all_active_programs = Program.where(inactive: nil)
+              programs = filter_scope(zipd[1], "County", all_active_programs)
+              county_prog_names = programs.pluck(:name)
+
+            end
+          end
+          logger.debug("************final array just before the blank check #{final_program_names.blank?} ")
+          if final_program_names.blank?
+            logger.debug("******* the final prog name was blank------------")
+            final_county_prog_names = county_prog_names - city_prog_names
+            final_state_prog_names = state_prog_names - final_county_prog_names
+          else
+            logger.debug("******* the final prog name was NOOOOOOOOTTTTTTTTT blank------------")
+            city_prog_names = city_prog_names & final_program_names
+            final_county_prog_names = (county_prog_names - city_prog_names) & final_program_names
+            final_state_prog_names = (state_prog_names - final_county_prog_names) & final_program_names
+          end
+
+          zip_result = temp_zipcode_work(city_prog_names, final_state_prog_names, final_county_prog_names )
+
+          render :json => {status: :ok, complete_result: zip_result } and return
+
+        end
       end
 
       # logger.debug("service_group_result: #{service_group_result.count}, population_group_result: #{population_group_result.count},
@@ -1161,9 +1206,10 @@ class OrgsController < ApplicationController
 
   end
 
-  def temp_zipcode_work(city_prog_names, final_state_prog_names )
+  def temp_zipcode_work(city_prog_names, final_state_prog_names, final_county_prog_names )
     state_program_array = []
     city_program_array = []
+    county_program_array = []
 
     city_prog_names.each do |pn|
       program = Program.find_by_name(pn)
@@ -1179,10 +1225,18 @@ class OrgsController < ApplicationController
       end
     end
 
+    final_county_prog_names.each do |pn|
+      program = Program.find_by_name(pn)
+      if program.inactive != true
+        county_program_array.push(program)
+      end
+    end
+
     complete_city_result = create_complete_hash(city_program_array)
     complete_state_result = create_complete_hash(state_program_array)
+    complete_county_result = create_complete_hash(county_program_array)
 
-    result = {city: complete_city_result,city_count: complete_city_result.count , state: complete_state_result, state_count: complete_state_result.count }
+    result = {city: complete_city_result,city_count: complete_city_result.count, county: complete_county_result, county_count: complete_county_result.count  , state: complete_state_result, state_count: complete_state_result.count }
   end
 
   def create_program_names_array(program_name_array, s, program_names)
@@ -1274,11 +1328,14 @@ class OrgsController < ApplicationController
 
   def delete_favorit_query
 
-    favorite_query = FavoriteQuery.find(params[:search_params])
+    ids = params[:search_params]
 
-    if favorite_query.destroy
-      render :json => {status: :ok, message: "Query was deleted" }
+    ids.each do |id|
+      favorite_query = FavoriteQuery.find(id)
+      favorite_query.destroy
     end
+
+    render :json => {status: :ok, message: "Query was deleted" }
 
   end
 
