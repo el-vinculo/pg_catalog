@@ -973,7 +973,7 @@ class OrgsController < ApplicationController
         service_group_container = params["search_params"]["ServiceGroupsContainer"]
         service_group_container.each do |s|
           service_group = ServiceGroup.find_by_name(s["value"])
-          service_programs = service_group.programs.pluck(:name)
+          service_programs = service_group.programs.pluck(:id)
           program_name_array = create_program_names_array(program_name_array, s, service_programs)
         end
 
@@ -989,7 +989,7 @@ class OrgsController < ApplicationController
 
         population_group_container = params["search_params"]["PopGroupContainer"]
         population_group_container.each do |s|
-          population_group_programs=  PopulationGroup.find_by_name(s["value"]).programs.pluck(:name)
+          population_group_programs=  PopulationGroup.find_by_name(s["value"]).programs.pluck(:id)
           program_name_array = create_program_names_array(program_name_array, s, population_group_programs)
         end
         population_group_result = fdsdkfe(program_name_array, population_group_container )
@@ -1006,7 +1006,7 @@ class OrgsController < ApplicationController
 
         service_tag_container = params["search_params"]["ServiceTagsContainer"]
         service_tag_container.each do |s|
-          service_tag_programs =  ServiceTag.find_by_name(s["value"]).programs.pluck(:name)
+          service_tag_programs =  ServiceTag.find_by_name(s["value"]).programs.pluck(:id)
           program_name_array = create_program_names_array(program_name_array, s, service_tag_programs)
         end
         service_tag_result = fdsdkfe(program_name_array, service_tag_container )
@@ -1020,7 +1020,7 @@ class OrgsController < ApplicationController
         # logger.debug("************IN the final else------------NAME")
         org_name = params["search_params"]["name"]
         programs = filter_name(org_name,all_acttive_programs)
-        org_name_result = programs.pluck(:name)
+        org_name_result = programs.pluck(:id)
 
         search_category_result_array.push(org_name_result)
 
@@ -1033,7 +1033,7 @@ class OrgsController < ApplicationController
         # logger.debug("************IN the final else------------NAME")
         prog_description = params["search_params"]["ProgDescr"]
         programs = filter_prog_desc(prog_description,all_acttive_programs)
-        prog_description_result = programs.pluck(:name)
+        prog_description_result = programs.pluck(:id)
 
         search_category_result_array.push(prog_description_result)
         # logger.debug("*********** THE FINAL RESULT IN PROGRAM DESCRIPTION IS: #{prog_description_result} ")
@@ -1093,7 +1093,7 @@ class OrgsController < ApplicationController
         unless scope_type == "Zipcode"
           all_active_programs = Program.where(inactive: nil)
           programs = filter_scope(scope_value, scope_type, all_active_programs)
-          geo_scope_result = programs.pluck(:name)
+          geo_scope_result = programs.pluck(:id)
 
           search_category_result_array.push(geo_scope_result)
         end
@@ -1151,17 +1151,17 @@ class OrgsController < ApplicationController
               all_active_programs = Program.where(inactive: nil)
               programs = filter_scope(zipd[1], "State", all_active_programs)
 
-              state_prog_names = programs.pluck(:name)
+              state_prog_names = programs.pluck(:id)
               # zipcode_programs.push(zip_prog_names)
             elsif zipd[0].to_s == "city"
               all_active_programs = Program.where(inactive: nil)
               programs = filter_scope(zipd[1], "City", all_active_programs)
-              city_prog_names = programs.pluck(:name)
+              city_prog_names = programs.pluck(:id)
               # zipcode_programs.push(zip_prog_names)
             elsif zipd[0].to_s == "county"
               all_active_programs = Program.where(inactive: nil)
               programs = filter_scope(zipd[1], "County", all_active_programs)
-              county_prog_names = programs.pluck(:name)
+              county_prog_names = programs.pluck(:id)
 
             end
           end
@@ -1192,7 +1192,7 @@ class OrgsController < ApplicationController
       logger.debug("************ the final program names are --- #{final_program_names}----------{final_program_names.count}")
       final_program_array = []
       final_program_names.each do |pn|
-        program = Program.find_by_name(pn)
+        program = Program.find(pn)
         if program.inactive != true
           final_program_array.push(program)
         end
@@ -1212,21 +1212,21 @@ class OrgsController < ApplicationController
     county_program_array = []
 
     city_prog_names.each do |pn|
-      program = Program.find_by_name(pn)
+      program = Program.find(pn)
       if program.inactive != true
         city_program_array.push(program)
       end
     end
 
     final_state_prog_names.each do |pn|
-      program = Program.find_by_name(pn)
+      program = Program.find(pn)
       if program.inactive != true
         state_program_array.push(program)
       end
     end
 
     final_county_prog_names.each do |pn|
-      program = Program.find_by_name(pn)
+      program = Program.find(pn)
       if program.inactive != true
         county_program_array.push(program)
       end
@@ -1244,7 +1244,7 @@ class OrgsController < ApplicationController
       program_name_array.push(program_names)
 
     else
-      all_programs = Program.all.pluck(:name)
+      all_programs = Program.all.pluck(:id)
       prog = all_programs - program_names
       program_name_array.push(prog)
     end
@@ -1315,10 +1315,10 @@ class OrgsController < ApplicationController
   def favorite_query_list
 
     favorite_query_list_array = []
-    favorite_query_list = FavoriteQuery.where( owner: params[:email])
+    favorite_query_list = FavoriteQuery.where( owner: params[:email]).order("created_at DESC")
 
     favorite_query_list.each do |fq|
-      fq_hash = {query_name: fq.query_name, query_hash: eval(fq.search_query), global: fq.global, created_at: fq.created_at}
+      fq_hash = {id: fq.id, query_name: fq.query_name, query_hash: eval(fq.search_query), global: fq.global, created_at: fq.created_at}
       favorite_query_list_array.push(fq_hash)
     end
 
@@ -1326,7 +1326,7 @@ class OrgsController < ApplicationController
 
   end
 
-  def delete_favorit_query
+  def delete_favorite_query
 
     ids = params[:search_params]
 
