@@ -1137,13 +1137,14 @@ class OrgsController < ApplicationController
           city = zip.city
           county = zip.county.name
           state = zip.state.abbr
-          zipcode_details = {city: city, state_code: state, county: county}
+          zipcode_details = {city: city, state_code: state, county: county, national: "National"}
           logger.debug("******** the zipcode details are : #{zipcode_details}")
           # zip_city = zipcode_details[:city]
           # zip_state = zipcode_details[:state_code]
           city_prog_names = []
           state_prog_names = []
           county_prog_names = []
+          national_prog_names = []
           zipcode_details.each do |zipd|
             logger.debug("********the keys are #{zipd}")
             if zipd[0].to_s == "state_code"
@@ -1162,7 +1163,10 @@ class OrgsController < ApplicationController
               all_active_programs = Program.where(inactive: nil)
               programs = filter_scope(zipd[1], "County", all_active_programs)
               county_prog_names = programs.pluck(:id)
-
+            elsif zipd[0].to_s == "national"
+              all_active_programs = Program.where(inactive: nil)
+              programs = filter_scope(zipd[1], "National", all_active_programs)
+              national_prog_names = programs.pluck(:id)
             end
           end
           logger.debug("************final array just before the blank check #{final_program_names.blank?} ")
@@ -1170,14 +1174,16 @@ class OrgsController < ApplicationController
             logger.debug("******* the final prog name was blank------------")
             final_county_prog_names = county_prog_names - city_prog_names
             final_state_prog_names = state_prog_names - final_county_prog_names
+            final_national_prog_names = national_prog_names
           else
             logger.debug("******* the final prog name was NOOOOOOOOTTTTTTTTT blank------------")
             city_prog_names = city_prog_names & final_program_names
             final_county_prog_names = (county_prog_names - city_prog_names) & final_program_names
             final_state_prog_names = (state_prog_names - final_county_prog_names) & final_program_names
+            final_national_prog_names = national_prog_names & final_program_names
           end
 
-          zip_result = temp_zipcode_work(city_prog_names, final_state_prog_names, final_county_prog_names )
+          zip_result = temp_zipcode_work(city_prog_names, final_state_prog_names, final_county_prog_names, final_national_prog_names )
 
           render :json => {status: :ok, complete_result: zip_result } and return
 
@@ -1206,10 +1212,11 @@ class OrgsController < ApplicationController
 
   end
 
-  def temp_zipcode_work(city_prog_names, final_state_prog_names, final_county_prog_names )
+  def temp_zipcode_work(city_prog_names, final_state_prog_names, final_county_prog_names, final_national_prog_names )
     state_program_array = []
     city_program_array = []
     county_program_array = []
+    national_program_array = []
 
     city_prog_names.each do |pn|
       program = Program.find(pn)
@@ -1232,11 +1239,21 @@ class OrgsController < ApplicationController
       end
     end
 
+    final_national_prog_names.each do |pn|
+      program = Program.find(pn)
+      if program.inactive != true
+        national_program_array.push(program)
+      end
+    end
+
     complete_city_result = create_complete_hash(city_program_array)
     complete_state_result = create_complete_hash(state_program_array)
     complete_county_result = create_complete_hash(county_program_array)
+    complete_national_result = create_complete_hash(national_program_array)
 
-    result = {city: complete_city_result,city_count: complete_city_result.count, county: complete_county_result, county_count: complete_county_result.count  , state: complete_state_result, state_count: complete_state_result.count }
+    result = {city: complete_city_result,city_count: complete_city_result.count, county: complete_county_result, county_count: complete_county_result.count  ,
+              state: complete_state_result, state_count: complete_state_result.count,
+              national: complete_national_result, national_count: complete_national_result.count  }
   end
 
   def create_program_names_array(program_name_array, s, program_names)
