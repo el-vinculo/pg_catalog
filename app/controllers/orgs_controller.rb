@@ -1,4 +1,5 @@
 class OrgsController < ApplicationController
+  include OrgsHelper
   before_action :set_org, only: [:show, :edit, :update, :destroy]
 
   # GET /orgs
@@ -1308,7 +1309,7 @@ class OrgsController < ApplicationController
 
     sg_list = ServiceGroup.where("name ILIKE ?", "%#{params[:search_params][:text]}%").pluck(:name)
     sg_list.delete("Lists & Guides")
-    render :json => {status: :ok, sg_list: sg_list }
+    render :json => {status: :ok, sg_list: sg_list.sort }
 
 
   end
@@ -1317,7 +1318,7 @@ class OrgsController < ApplicationController
 
     popg_list = PopulationGroup.where("name ILIKE ?", "%#{params[:search_params][:text]}%").pluck(:name)
 
-    render :json => {status: :ok, popg_list: popg_list }
+    render :json => {status: :ok, popg_list: popg_list.sort }
 
   end
 
@@ -1325,7 +1326,7 @@ class OrgsController < ApplicationController
 
     stg_list = ServiceTag.where("name ILIKE ?", "%#{params[:search_params][:text]}%").pluck(:name)
 
-    render :json => {status: :ok, stg_list: stg_list }
+    render :json => {status: :ok, stg_list: stg_list.sort }
 
   end
 
@@ -1355,6 +1356,52 @@ class OrgsController < ApplicationController
     render :json => {status: :ok, message: "Query was deleted" }
 
   end
+
+  def filter_service_tag
+
+    service_tag_programs =  ServiceTag.find_by_name(params[:tag]).programs
+
+    filter_result = []
+    service_tag_programs.each do |p|
+      program_name = p.name
+      org_name = p.org.name
+      domain = p.org.domain
+      filter_hash = {program_name: program_name, org_name: org_name, domain: domain }
+
+      filter_result.push(filter_hash)
+    end
+
+    render :json => {status: :ok, result: filter_result }
+  end
+
+  def get_entry_by_domain
+
+    org = Org.find_by_domain(params[:domain])
+    programs = org.programs
+    sites = org.sites
+
+    programs_array = []
+    sites_array = []
+
+    scope_hash = create_scope(org)
+    org_name_hash = create_org_name(org)
+
+    programs.each do |p|
+      program_hash = helpers.create_program_hash(p)
+      programs_array.push(program_hash)
+    end
+
+    sites.each do |s|
+      site_hash = helpers.create_site_hash(s)
+      sites_array.push(site_hash)
+    end
+
+    catalog = {"url": params[:domain], "GeoScope": scope_hash, "OrganizationName": org_name_hash, "Programs": programs_array, "OrgSites": sites_array }
+
+    render :json => {status: :ok, catalog: catalog  }
+
+  end
+
 
 
   private

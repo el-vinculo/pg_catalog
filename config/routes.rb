@@ -17,5 +17,7 @@ Rails.application.routes.draw do
   post "/service_tag_list", to: "orgs#service_tag_list"
   post "/favorite_query_list", to: "orgs#favorite_query_list"
   post "/delete_favorit_query", to: "orgs#delete_favorit_query"
+  post "/filter_service_tag", to: "orgs#filter_service_tag"
+  post "/get_entry_by_domain", to: "orgs#get_entry_by_domain"
 
 end
