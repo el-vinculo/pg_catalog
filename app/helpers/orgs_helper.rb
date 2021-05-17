@@ -60,7 +60,7 @@ module OrgsHelper
         "S_Veterans": program_services.include?("Veterans") ? true : false,
         "S_Victim": program_services.include?("Victim") ? true : false,
         "S_Vision": program_services.include?("Vision") ? true : false,
-        "SelectprogramID": "1",
+        "SelectprogramID": p.select_program_id,
         "ServiceAreaDescriptionDisplay": p.service_area_description_display,
         "ServiceTags": p_service_tags
     }

@@ -119,6 +119,8 @@ class OrgsController < ApplicationController
 
     end
 
+    update_dynamo_db(params["catalog"])
+
   end
 
 
@@ -183,6 +185,7 @@ class OrgsController < ApplicationController
       prgm.population_description_display = p["PopulationDescriptionDisplay"] if p["PopulationDescriptionDisplay"]
       prgm.service_area_description_display = p["ServiceAreaDescriptionDisplay"] if p["ServiceAreaDescriptionDisplay"]
       prgm.inactive = p["InactiveProgram"] if p["InactiveProgram"]
+      prgm.select_program_id = p["SelectprogramID"] if p["SelectprogramID"]
       prgm.org_id = org.id
       if prgm.save
         attached_sites = p["ProgramSites"]
@@ -322,6 +325,7 @@ class OrgsController < ApplicationController
     prgm.service_area_description_display = p["ServiceAreaDescriptionDisplay"] if p["ServiceAreaDescriptionDisplay"]
     prgm.inactive = p["InactiveProgram"] if p["InactiveProgram"]
     prgm.attached_sites = p["ProgramSites"] if p["ProgramSites"]
+    prgm.select_program_id = p["SelectprogramID"] if p["SelectprogramID"]
     prgm.org_id = org.id
     if prgm.save
       attached_sites = p["ProgramSites"]
@@ -726,7 +730,7 @@ class OrgsController < ApplicationController
                 "S_Veterans": program_services.include?("Veterans") ? true : false,
                 "S_Victim": program_services.include?("Victim") ? true : false,
                 "S_Vision": program_services.include?("Vision") ? true : false,
-                "SelectprogramID": "1",
+                "SelectprogramID": p.select_program_id,
                 "ServiceAreaDescription": [
                     {
 
@@ -1399,6 +1403,42 @@ class OrgsController < ApplicationController
     catalog = {"url": params[:domain], "GeoScope": scope_hash, "OrganizationName": org_name_hash, "Programs": programs_array, "OrgSites": sites_array }
 
     render :json => {status: :ok, catalog: catalog  }
+
+  end
+
+
+  def update_dynamo_db(catalog)
+
+    item = catalog.to_unsafe_h
+
+    dynamodb = Aws::DynamoDB::Client.new(region: "us-west-2")
+    table_name = "master_provider"
+
+    item["Programs"].each do |p|
+      # logger.debug("-----------Program sites are #{p["ProgramSites"]}")
+      if p["ProgramSites"]
+        ps = p["ProgramSites"].first
+        # ps.split(',')
+        # logger.debug("-----------SSplit program is Program sites are #{ps.split(',')}")
+        p["ProgramSites"] = ps.split(',')
+        # logger.debug("-----------At the end Program sites are #{p["ProgramSites"]}")
+      end
+
+    end
+
+    logger.debug(")))))))))))))))))))))))))))))))))))))))))))the item is : #{item}")
+
+    params = {
+        table_name: table_name,
+        item: item
+    }
+
+    begin
+      dynamodb.put_item(params)
+      render :json => { status: :ok, message: "Entry created successfully"  }
+    rescue  Aws::DynamoDB::Errors::ServiceError => error
+      render :json => {message: error  }
+    end
 
   end
 
