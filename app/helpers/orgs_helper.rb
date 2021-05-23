@@ -71,41 +71,45 @@ module OrgsHelper
 
     location = Location.where(sites_id: s.id).first
 
-    site = {
-        "Addr1": [
-            {
-                "Domain": "n/a",
-                "Text": location.addr1,
-                "Xpath": "n/a"
-            }
-        ],
-        "AddrCity": location.city,
-        "AddrState": location.state,
-        "AddrZip": location.zip,
-        # "AdminSite": true,
-        # "DefaultPOC": false,
-        "Email": location.email,
-        # "InactivePOC": false,
-        "InactiveSite": s.inactive.nil? ? false : s.inactive ,
-        "LocationName": s.site_name,
-        "Name": s.name,
-        "OfficePhone": location.phone,
-        "POCs": [
-            {
-                "id": "1.0",
-                "poc": {
-                    # "DefaultPOC": false,
-                    "Email": location.email,
-                    # "InactivePOC": false,
-                    "Name": s.name,
-                    "OfficePhone": location.phone
-                }
-            }
-        ],
-        # "ResourceDirectory": false,
-        "SelectSiteID": s.select_site_id
-        # "ServiceDeliverySite": true
-    }
+    if location.nil?
+      {}
+    else
+      site = {
+          "Addr1": [
+              {
+                  "Domain": "n/a",
+                  "Text": location.addr1,
+                  "Xpath": "n/a"
+              }
+          ],
+          "AddrCity": location.city,
+          "AddrState": location.state,
+          "AddrZip": location.zip,
+          # "AdminSite": true,
+          # "DefaultPOC": false,
+          "Email": location.email,
+          # "InactivePOC": false,
+          "InactiveSite": s.inactive.nil? ? false : s.inactive ,
+          "LocationName": s.site_name,
+          "Name": s.name,
+          "OfficePhone": location.phone,
+          "POCs": [
+              {
+                  "id": "1.0",
+                  "poc": {
+                      # "DefaultPOC": false,
+                      "Email": location.email,
+                      # "InactivePOC": false,
+                      "Name": s.name,
+                      "OfficePhone": location.phone
+                  }
+              }
+          ],
+          # "ResourceDirectory": false,
+          "SelectSiteID": s.select_site_id
+          # "ServiceDeliverySite": true
+      }
+    end
 
   end
 

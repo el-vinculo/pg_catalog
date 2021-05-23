@@ -101,6 +101,7 @@ class OrgsController < ApplicationController
 
       #Code to extract sites data into postgrace
       if dyna_entry["OrgSites"]
+        # org.sites.destroy_all
         dyna_entry["OrgSites"].each do |site|
           extract_site_data(site, org)
         end
@@ -108,6 +109,7 @@ class OrgsController < ApplicationController
 
       #Code to extract program data into postgrace
       if dyna_entry["Programs"]
+        org.programs.destroy_all
         dyna_entry["Programs"].each do |p|
           extract_programs_data(p,org, dyna_entry)
         end
@@ -315,7 +317,7 @@ class OrgsController < ApplicationController
     else
       prgm = existing_prgm.first
     end
-
+    
     prgm.name = p["ProgramName"] if p["ProgramName"]
     prgm.quick_url = p["QuickConnectWebPage"] if p["QuickConnectWebPage"]
     prgm.contact_url = p["ContactWebPage"] if p["ContactWebPage"]
