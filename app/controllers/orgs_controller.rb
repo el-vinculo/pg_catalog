@@ -317,7 +317,7 @@ class OrgsController < ApplicationController
     else
       prgm = existing_prgm.first
     end
-    
+
     prgm.name = p["ProgramName"] if p["ProgramName"]
     prgm.quick_url = p["QuickConnectWebPage"] if p["QuickConnectWebPage"]
     prgm.contact_url = p["ContactWebPage"] if p["ContactWebPage"]
@@ -979,6 +979,7 @@ class OrgsController < ApplicationController
 
         service_group_container = params["search_params"]["ServiceGroupsContainer"]
         service_group_container.each do |s|
+          logger.debug("the value of service group is : #{s["value"]}")
           service_group = ServiceGroup.find_by_name(s["value"])
           service_programs = service_group.programs.pluck(:id)
           program_name_array = create_program_names_array(program_name_array, s, service_programs)
@@ -988,7 +989,7 @@ class OrgsController < ApplicationController
 
         service_group_result = fdsdkfe(program_name_array, service_group_container )
         search_category_result_array.push(service_group_result)
-        # logger.debug("*********** THE FINAL RESULT IN service_group_container IS: {service_group_result} ")
+        # logger.debug("*********** THE FINAL RESULT IN service_group_container IS: #{service_group_result} ")
       end
 
       if query_params.include?("PopGroupContainer")
@@ -1097,13 +1098,13 @@ class OrgsController < ApplicationController
         #   search_category_result_array.push(zipcode_programs)
         #   render :json => {status: :ok, complete_result: zip_result } and return
         # else
-        unless scope_type == "Zipcode"
-          all_active_programs = Program.where(inactive: nil)
-          programs = filter_scope(scope_value, scope_type, all_active_programs)
-          geo_scope_result = programs.pluck(:id)
-
-          search_category_result_array.push(geo_scope_result)
-        end
+        # unless scope_type == "Zipcode"
+        #   all_active_programs = Program.where(inactive: nil)
+        #   programs = filter_scope(scope_value, scope_type, all_active_programs)
+        #   geo_scope_result = programs.pluck(:id)
+        #
+        #   search_category_result_array.push(geo_scope_result)
+        # end
 
         # end
         # all_active_programs = Program.where(inactive: nil)
@@ -1139,7 +1140,7 @@ class OrgsController < ApplicationController
         if scope_type == "Zipcode"
           zipcode_programs = []
           zipcode = scope_value
-          logger.debug("***********the zipcode is #{zipcode}------------final prog names #{final_program_names.blank?}--")
+          logger.debug("***********the zipcode is #{zipcode}------------final prog names #{final_program_names}--")
           zip = Zipcode.find_by_code(zipcode)
           city = zip.city
           county = zip.county.name
@@ -1264,10 +1265,12 @@ class OrgsController < ApplicationController
   end
 
   def create_program_names_array(program_name_array, s, program_names)
+
     if s["modifier"] == "False"
       program_name_array.push(program_names)
 
     else
+
       all_programs = Program.all.pluck(:id)
       prog = all_programs - program_names
       program_name_array.push(prog)
@@ -1286,28 +1289,23 @@ class OrgsController < ApplicationController
       else
         next if i == 0
         if ser[:connector] == "AND"
+          # logger.debug("------ the ser in AND is : #{ser}")
           if i == 1
             r = program_name_array[0] & program_name_array[1]
           else
-            # puts("********* THE VALUE ID R in and IS : #{r}")
-            r = r & program_name_array[i -1 ]
+            r = r & program_name_array[i]
           end
           # puts("******** C in AND IS : #{r}")
         elsif ser[:connector] == "OR"
           if i == 1
             r = program_name_array[0] | program_name_array[1]
           else
-            r = r | program_name_array[i -1 ]
+            r = r | program_name_array[i]
           end
-          # puts("******** C in OR IS : #{r}")
         end
-        # puts("********* THE VALUE ID R IS : #{r}")
       end
     end
-
-
     r
-
   end
 
 
@@ -1365,16 +1363,19 @@ class OrgsController < ApplicationController
 
   def filter_service_tag
 
-    service_tag_programs =  ServiceTag.find_by_name(params[:tag]).programs
+    service_tag =  ServiceTag.find_by_name(params[:tag])
 
     filter_result = []
-    service_tag_programs.each do |p|
-      program_name = p.name
-      org_name = p.org.name
-      domain = p.org.domain
-      filter_hash = {program_name: program_name, org_name: org_name, domain: domain }
+    if !service_tag.nil?
+      service_tag_programs = service_tag.programs
+      service_tag_programs.each do |p|
+        program_name = p.name
+        org_name = p.org.name
+        domain = p.org.domain
+        filter_hash = {program_name: program_name, org_name: org_name, domain: domain }
 
-      filter_result.push(filter_hash)
+        filter_result.push(filter_hash)
+      end
     end
 
     render :json => {status: :ok, result: filter_result }
@@ -1441,6 +1442,65 @@ class OrgsController < ApplicationController
     rescue  Aws::DynamoDB::Errors::ServiceError => error
       render :json => {message: error  }
     end
+
+  end
+
+  def remove_unnecessary_service_tags
+    tag_to_remove =  params[:tag_to_remove]
+
+
+    tag_to_remove_id = ServiceTag.find_by_name(tag_to_remove).id
+
+    org_prog_name = []
+    if !tag_to_remove_id.nil?
+      program_tags_to_remove = ProgramServiceTag.where(service_tag: tag_to_remove_id)
+      program_ids = program_tags_to_remove.pluck(:program_id, :org_id)
+
+      program_tags_to_remove.each do |ptr|
+        ptr.destroy!
+      end
+
+      ServiceTag.find_by_name(tag_to_remove).destroy
+
+      program_ids.each do |p|
+        org_name = Org.find(p[1]).name
+        prog_name = Program.find(p[0]).name
+        org_prog_hash = {org_name: org_name, prog_name: prog_name }
+        org_prog_name.push(org_prog_hash)
+      end
+
+      remove_tag_message = "Tag #{tag_to_remove} was removed from org_prog_name "
+      if !params[:tag_to_replace_with].blank?
+        tag_to_replace_with =  params[:tag_to_replace_with]
+        tag_to_replace_with_id = ServiceTag.find_by_name(tag_to_replace_with).id
+        if !tag_to_replace_with_id.nil?
+          program_ids.each do |p|
+            org_name = Org.find(p[1]).name
+            prog_name = Program.find(p[0]).name
+            org_prog_hash = {org_name: org_name, prog_name: prog_name }
+            org_prog_name.push(org_prog_hash)
+            org_id = p[1]
+            program_id = p[0]
+            ProgramServiceTag.create(org_id: org_id, program_id: program_id, service_tag_id: tag_to_replace_with_id )
+          end
+          add_tag_message = " and tag #{tag_to_replace_with} was added."
+        else
+          add_tag_message = "and tag #{tag_to_replace_with} dose not exists."
+        end
+      else
+        add_tag_message = " "
+      end
+
+      message = remove_tag_message + add_tag_message
+
+    else
+
+      message = "Tag #{tag_to_remove} does not exists in the database, so it can not be removed. "
+
+    end
+
+    render :json => {status: :ok, message: message}
+
 
   end
 
