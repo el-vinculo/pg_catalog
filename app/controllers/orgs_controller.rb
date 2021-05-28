@@ -426,7 +426,7 @@ class OrgsController < ApplicationController
 
   def create_location(s, site)
     logger.debug("**********the site in create location is : #{s.inspect}")
-    if !site.key?("Addr1").nil? && !site["AddrCity"].nil?
+    if !site["Addr1"].nil? && !site["AddrCity"].nil?
       existing_loc = Location.where("sites_id = ? and addr1 = ?", s.id, site["Addr1"][0]["Text"])
       logger.debug("*888888********the existing loc is : #{existing_loc.inspect}")
       if existing_loc.empty?
@@ -1449,10 +1449,11 @@ class OrgsController < ApplicationController
     tag_to_remove =  params[:tag_to_remove]
 
 
-    tag_to_remove_id = ServiceTag.find_by_name(tag_to_remove).id
+    tag_to_remove = ServiceTag.find_by_name(tag_to_remove)
 
     org_prog_name = []
-    if !tag_to_remove_id.nil?
+    if !tag_to_remove.nil?
+      tag_to_remove_id = tag_to_remove.id
       program_tags_to_remove = ProgramServiceTag.where(service_tag: tag_to_remove_id)
       program_ids = program_tags_to_remove.pluck(:program_id, :org_id)
 
@@ -1469,24 +1470,27 @@ class OrgsController < ApplicationController
         org_prog_name.push(org_prog_hash)
       end
 
-      remove_tag_message = "Tag #{tag_to_remove} was removed from org_prog_name "
+      remove_tag_message = "Tag #{tag_to_remove} was removed from #{org_prog_name} "
       if !params[:tag_to_replace_with].blank?
         tag_to_replace_with =  params[:tag_to_replace_with]
-        tag_to_replace_with_id = ServiceTag.find_by_name(tag_to_replace_with).id
-        if !tag_to_replace_with_id.nil?
-          program_ids.each do |p|
-            org_name = Org.find(p[1]).name
-            prog_name = Program.find(p[0]).name
-            org_prog_hash = {org_name: org_name, prog_name: prog_name }
-            org_prog_name.push(org_prog_hash)
-            org_id = p[1]
-            program_id = p[0]
-            ProgramServiceTag.create(org_id: org_id, program_id: program_id, service_tag_id: tag_to_replace_with_id )
-          end
-          add_tag_message = " and tag #{tag_to_replace_with} was added."
+        tag_to_replace_with = ServiceTag.find_by_name(tag_to_replace_with)
+
+        if !tag_to_replace_with.nil?
+          tag_to_replace_with_id = tag_to_replace_with.id
         else
-          add_tag_message = "and tag #{tag_to_replace_with} dose not exists."
+          st = ServiceTag.new
+          st.name = tag_to_replace_with
+          st.save
+          tag_to_replace_with_id = st.id
         end
+
+        program_ids.each do |p|
+          org_id = p[1]
+          program_id = p[0]
+          ProgramServiceTag.create(org_id: org_id, program_id: program_id, service_tag_id: tag_to_replace_with_id )
+        end
+
+        add_tag_message = " and tag #{tag_to_replace_with} was added."
       else
         add_tag_message = " "
       end
