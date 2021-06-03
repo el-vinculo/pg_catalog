@@ -1449,11 +1449,11 @@ class OrgsController < ApplicationController
     tag_to_remove =  params[:tag_to_remove]
 
 
-    tag_to_remove = ServiceTag.find_by_name(tag_to_remove)
+    pg_tag_to_remove = ServiceTag.find_by_name(tag_to_remove)
 
     org_prog_name = []
-    if !tag_to_remove.nil?
-      tag_to_remove_id = tag_to_remove.id
+    if !pg_tag_to_remove.nil?
+      tag_to_remove_id = pg_tag_to_remove.id
       program_tags_to_remove = ProgramServiceTag.where(service_tag: tag_to_remove_id)
       program_ids = program_tags_to_remove.pluck(:program_id, :org_id)
 
@@ -1473,10 +1473,10 @@ class OrgsController < ApplicationController
       remove_tag_message = "Tag #{tag_to_remove} was removed from #{org_prog_name} "
       if !params[:tag_to_replace_with].blank?
         tag_to_replace_with =  params[:tag_to_replace_with]
-        tag_to_replace_with = ServiceTag.find_by_name(tag_to_replace_with)
+        pg_tag_to_replace_with = ServiceTag.find_by_name(tag_to_replace_with)
 
-        if !tag_to_replace_with.nil?
-          tag_to_replace_with_id = tag_to_replace_with.id
+        if !pg_tag_to_replace_with.nil?
+          tag_to_replace_with_id = pg_tag_to_replace_with.id
         else
           st = ServiceTag.new
           st.name = tag_to_replace_with
