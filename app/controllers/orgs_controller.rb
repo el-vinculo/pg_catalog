@@ -121,7 +121,7 @@ class OrgsController < ApplicationController
 
     end
 
-    update_dynamo_db(params["catalog"])
+#    update_dynamo_db(params["catalog"])
 
   end
 
@@ -697,6 +697,7 @@ class OrgsController < ApplicationController
                     }
                 ],
                 "ProgramDescriptionDisplay": p.program_description_display,
+                "PopulationDescriptionDisplay": p.population_description_display,
                 "ProgramName": p.name,
                 "ProgramSites": p.attached_sites,
                 "ProgramWebPage": p.program_url ,
@@ -991,6 +992,7 @@ class OrgsController < ApplicationController
         search_category_result_array.push(service_group_result)
         # logger.debug("*********** THE FINAL RESULT IN service_group_container IS: #{service_group_result} ")
       end
+      #logger.debug("*****search_category_result_array after Service Group: -- #{search_category_result_array} ")
 
       if query_params.include?("PopGroupContainer")
         program_name_array = []
@@ -1007,6 +1009,7 @@ class OrgsController < ApplicationController
 
       # elsif query_params.sort == ["ServiceTagsContainer"].sort
       end
+      #logger.debug("*****search_category_result_array after Pop Groups: -- #{search_category_result_array} ")
 
       if query_params.include?("ServiceTagsContainer")
 
@@ -1022,6 +1025,7 @@ class OrgsController < ApplicationController
         search_category_result_array.push(service_tag_result)
         # logger.debug("*********** THE FINAL RESULT IN service_tag_container IS: #{service_tag_result} ")
       end
+      #logger.debug("*****search_category_result_array after Service Tags: -- #{search_category_result_array} ")
 
       if query_params.include? ('name')
         all_acttive_programs = Program.where(inactive: nil)
@@ -1034,6 +1038,7 @@ class OrgsController < ApplicationController
 
         # logger.debug("*********** THE FINAL RESULT IN NAME IS: #{org_name_result} ")
       end
+      #logger.debug("*****search_category_result_array after name: -- #{search_category_result_array} ")
 
       if query_params.include? ('ProgDescr')
 
@@ -1047,6 +1052,7 @@ class OrgsController < ApplicationController
         # logger.debug("*********** THE FINAL RESULT IN PROGRAM DESCRIPTION IS: #{prog_description_result} ")
 
       end
+      #logger.debug("*****search_category_result_array after Prop desc: -- #{search_category_result_array} ")
 
       if query_params.include? ('GeoScope')
         scope_value = params["search_params"]["GeoScope"]["value"]
@@ -1107,13 +1113,16 @@ class OrgsController < ApplicationController
         # end
 
         # end
-        # all_active_programs = Program.where(inactive: nil)
-        # programs = filter_scope(scope_value, scope_type, all_active_programs)
-        # geo_scope_result = programs.pluck(:name)
-        #
-        # search_category_result_array.push(geo_scope_result)
+         if scope_type != "Zipcode"
+           #logger.debug("********* the lines you just commented !!!!!!!!!!!!!!")
+           all_active_programs = Program.where(inactive: nil)
+           programs = filter_scope(scope_value, scope_type, all_active_programs)
+           geo_scope_result = programs.pluck(:id)
+        
+           search_category_result_array.push(geo_scope_result)
+         end
       end
-
+      #logger.debug("*****search_category_result_array after geoscope: -- #{search_category_result_array} ")
 
       logger.debug("*************** the  search_category_result_array #{search_category_result_array}---------#{search_category_result_array.flatten.count}")
       final_program_names = []
@@ -1178,7 +1187,8 @@ class OrgsController < ApplicationController
             end
           end
           logger.debug("************final array just before the blank check #{final_program_names.blank?} ")
-          if final_program_names.blank?
+          #if final_program_names.blank?
+          if query_params.length == 1
             logger.debug("******* the final prog name was blank------------")
             final_county_prog_names = county_prog_names - city_prog_names
             final_state_prog_names = state_prog_names - final_county_prog_names
