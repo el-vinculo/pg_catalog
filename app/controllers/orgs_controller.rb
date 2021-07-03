@@ -1480,6 +1480,8 @@ class OrgsController < ApplicationController
         org_prog_name.push(org_prog_hash)
       end
 
+      remove_tag_from_dynamodb(program_ids, tag_to_remove, params[:tag_to_replace_with] )
+
       remove_tag_message = "Tag #{tag_to_remove} was removed from #{org_prog_name} "
       if !params[:tag_to_replace_with].blank?
         tag_to_replace_with =  params[:tag_to_replace_with]
@@ -1515,6 +1517,63 @@ class OrgsController < ApplicationController
 
     render :json => {status: :ok, message: message}
 
+
+  end
+
+  def remove_tag_from_dynamodb(program_ids, tag_to_remove, tag_to_replace_with)
+
+    table_names =["demo_catalog", "demo_master_catalog"]
+
+    table_names.each do |table_name|
+
+      dynamodb = Aws::DynamoDB::Client.new(region: "us-west-2")
+
+      i = 0
+      program_ids.each do |p|
+        i += 1
+        if i % 50 == 0
+          sleep 40
+        end
+        org_id = p[1]
+        program_id = p[0]
+        org_domain = Org.find(org_id).domain
+        prog_name = Program.find(program_id).name
+
+        parameters = {
+            table_name: table_name,
+            key: {
+                url: org_domain
+            }
+        }
+
+        c = dynamodb.get_item(parameters)[:item]
+
+        c["Programs"].each do |p|
+
+          if p["ProgramName"] == prog_name
+
+            tags = p["ServiceTags"]
+            tags.slice!("#{tag_to_remove}, ")
+            if !tag_to_replace_with.blank?
+              tags.insert(0, "#{tag_to_replace_with}, ")
+            end
+          end
+        end
+        params = {
+            table_name: table_name,
+            item: c
+        }
+        logger.debug("******* i is #{i}")
+        begin
+          dynamodb.put_item(params)
+            # render :json => { status: :ok, message: "Entry created successfully"  }
+        rescue  Aws::DynamoDB::Errors::ServiceError => error
+          logger.debug("********** the error for #{c["url"]}-----------#{error}")
+          # render :json => {message: error  }
+        end
+
+      end
+    end
 
   end
 
