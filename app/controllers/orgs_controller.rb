@@ -80,7 +80,7 @@ class OrgsController < ApplicationController
     org.description_display = dyna_entry["OrganizationName"]["OrganizationDescriptionDisplay"] if dyna_entry["OrganizationName"]["OrganizationDescriptionDisplay"]
     org.org_type = dyna_entry["OrganizationName"]["Type"] if dyna_entry["OrganizationName"]["Type"]
     org.home_url = dyna_entry["OrganizationName"]["HomePageURL"] if dyna_entry["OrganizationName"]["HomePageURL"]
-    org.inactive = dyna_entry["OrganizationName"]["InactiveCatalog"] if dyna_entry["OrganizationName"]["InactiveCatalog"]
+    org.inactive = dyna_entry["OrganizationName"]["InactiveCatalog"]
     if org.save
       grabbed_org_desc = dyna_entry["OrganizationName"]["OrgDescription"]
 
@@ -120,8 +120,10 @@ class OrgsController < ApplicationController
       end
 
     end
-
-#    update_dynamo_db(params["catalog"])
+    if params.key?("db")
+      logger.debug("***************** will update the dynamoDB ***********************")
+      update_dynamo_db(params["catalog"])
+    end
 
   end
 
@@ -325,7 +327,7 @@ class OrgsController < ApplicationController
     prgm.program_description_display = p["ProgramDescriptionDisplay"] if p["ProgramDescriptionDisplay"]
     prgm.population_description_display = p["PopulationDescriptionDisplay"] if p["PopulationDescriptionDisplay"]
     prgm.service_area_description_display = p["ServiceAreaDescriptionDisplay"] if p["ServiceAreaDescriptionDisplay"]
-    prgm.inactive = p["InactiveProgram"] if p["InactiveProgram"]
+    prgm.inactive = p["InactiveProgram"]
     prgm.attached_sites = p["ProgramSites"] if p["ProgramSites"]
     prgm.select_program_id = p["SelectprogramID"] if p["SelectprogramID"]
     prgm.org_id = org.id
@@ -1425,7 +1427,7 @@ class OrgsController < ApplicationController
     item = catalog.to_unsafe_h
 
     dynamodb = Aws::DynamoDB::Client.new(region: "us-west-2")
-    table_name = "master_provider"
+    table_name = "preprod_master_catalog"
 
     item["Programs"].each do |p|
       # logger.debug("-----------Program sites are #{p["ProgramSites"]}")
@@ -1522,7 +1524,7 @@ class OrgsController < ApplicationController
 
   def remove_tag_from_dynamodb(program_ids, tag_to_remove, tag_to_replace_with)
 
-    table_names =["demo_catalog", "demo_master_catalog"]
+    table_names =["preprod_catalog", "preprod_master_catalog"]
 
     table_names.each do |table_name|
 
