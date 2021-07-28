@@ -120,8 +120,8 @@ class OrgsController < ApplicationController
       end
 
     end
+
     if params.key?("db")
-      logger.debug("***************** will update the dynamoDB ***********************")
       update_dynamo_db(params["catalog"])
     end
 
@@ -494,7 +494,7 @@ class OrgsController < ApplicationController
     # {'GeoScope': {'value': 'National', 'type': 'Scope'}, 'application_name': 'demo'}
 
     query_params = params["search_params"].keys
-    all_acttive_programs = Program.where(inactive: nil)
+    all_acttive_programs = helpers.active_programs
     logger.debug("query_params iss : #{query_params}")
     if query_params.sort == ["application_name"].sort
       logger.debug("ONLY application")
@@ -583,7 +583,7 @@ class OrgsController < ApplicationController
     programs.each do |p|
       org = p.org
       scope = org.scopes.first
-      org_name_grab_field = org.grab_lists.where(field_name: "OrganizationName").first
+      org_name_grab_field = org.grab_lists.where(field_name: "OrganizationName").last
       program_services = p.service_groups.pluck(:name)
       program_population = p.population_groups.pluck(:name)
       p_service_tags = p.service_tags.pluck(:name).join(", ")
@@ -689,10 +689,13 @@ class OrgsController < ApplicationController
                 "P_Family": program_population.include?("Family") ? true : false,
                 "P_LGBTQ": program_population.include?("LGBTQ") ? true : false,
                 "P_LowIncome": program_population.include?("LowIncome") ? true : false,
+                "P_VeryLowIncome": program_population.include?("VeryLowIncome") ? true : false,
+                "P_Men": program_population.include?("Men") ? true : false,
                 "P_Native": program_population.include?("Native") ? true : false,
                 "P_Other": program_population.include?("Other") ? true : false,
                 "P_Senior": program_population.include?("Senior") ? true : false,
                 "P_Veteran": program_population.include?("Veteran") ? true : false,
+                "P_Women": program_population.include?("Women") ? true : false,
                 "PopulationDescription": [
                     {
 
@@ -729,8 +732,10 @@ class OrgsController < ApplicationController
                 "S_Medical": program_services.include?("Medical") ? true : false,
                 "S_Research": program_services.include?("Research") ? true : false,
                 "S_Resources": program_services.include?("Resources") ? true : false,
+                "S_Referrals": program_services.include?("Referrals") ? true : false,
                 "S_Respite": program_services.include?("Respite") ? true : false,
                 "S_Senior": program_services.include?("Senior") ? true : false,
+                "S_Teen & Youth": program_services.include?("Teen & Youth") ? true : false,
                 "S_Transportation": program_services.include?("Transportation") ? true : false,
                 "S_Veterans": program_services.include?("Veterans") ? true : false,
                 "S_Victim": program_services.include?("Victim") ? true : false,
@@ -973,7 +978,7 @@ class OrgsController < ApplicationController
     # if query_params.sort == ["ServiceGroupsContainer"].sort
     if query_params.empty?
       # logger.debug("**************you are in the epmty")
-      all_active_programs = Program.where(inactive: nil)
+      all_active_programs = helpers.active_programs
       final_program_array = all_active_programs
       # logger.debug("**********active programs are #{final_program_array.count}")
     else
@@ -1030,7 +1035,7 @@ class OrgsController < ApplicationController
       #logger.debug("*****search_category_result_array after Service Tags: -- #{search_category_result_array} ")
 
       if query_params.include? ('name')
-        all_acttive_programs = Program.where(inactive: nil)
+        all_acttive_programs = helpers.active_programs
         # logger.debug("************IN the final else------------NAME")
         org_name = params["search_params"]["name"]
         programs = filter_name(org_name,all_acttive_programs)
@@ -1044,7 +1049,7 @@ class OrgsController < ApplicationController
 
       if query_params.include? ('ProgDescr')
 
-        all_acttive_programs = Program.where(inactive: nil)
+        all_acttive_programs = helpers.active_programs
         # logger.debug("************IN the final else------------NAME")
         prog_description = params["search_params"]["ProgDescr"]
         programs = filter_prog_desc(prog_description,all_acttive_programs)
@@ -1117,7 +1122,7 @@ class OrgsController < ApplicationController
         # end
          if scope_type != "Zipcode"
            #logger.debug("********* the lines you just commented !!!!!!!!!!!!!!")
-           all_active_programs = Program.where(inactive: nil)
+           all_active_programs = helpers.active_programs
            programs = filter_scope(scope_value, scope_type, all_active_programs)
            geo_scope_result = programs.pluck(:id)
         
@@ -1168,22 +1173,22 @@ class OrgsController < ApplicationController
             logger.debug("********the keys are #{zipd}")
             if zipd[0].to_s == "state_code"
               logger.debug("*******are you in here")
-              all_active_programs = Program.where(inactive: nil)
+              all_active_programs = helpers.active_programs
               programs = filter_scope(zipd[1], "State", all_active_programs)
 
               state_prog_names = programs.pluck(:id)
               # zipcode_programs.push(zip_prog_names)
             elsif zipd[0].to_s == "city"
-              all_active_programs = Program.where(inactive: nil)
+              all_active_programs = helpers.active_programs
               programs = filter_scope(zipd[1], "City", all_active_programs)
               city_prog_names = programs.pluck(:id)
               # zipcode_programs.push(zip_prog_names)
             elsif zipd[0].to_s == "county"
-              all_active_programs = Program.where(inactive: nil)
+              all_active_programs = helpers.active_programs
               programs = filter_scope(zipd[1], "County", all_active_programs)
               county_prog_names = programs.pluck(:id)
             elsif zipd[0].to_s == "national"
-              all_active_programs = Program.where(inactive: nil)
+              all_active_programs = helpers.active_programs
               programs = filter_scope(zipd[1], "National", all_active_programs)
               national_prog_names = programs.pluck(:id)
             end
@@ -1231,6 +1236,7 @@ class OrgsController < ApplicationController
     render :json => {status: :ok, result_count: complete_result.count , complete_result: complete_result }
 
   end
+
 
   def temp_zipcode_work(city_prog_names, final_state_prog_names, final_county_prog_names, final_national_prog_names )
     state_program_array = []
